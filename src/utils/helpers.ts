@@ -8,6 +8,14 @@ export function formatDate(dateString: string): string {
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+export function formatDateTime(dateString: string): string {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return `${timeStr} ${dateStr}`
+}
+
 export function maskPhone(phone: string): string {
   if (phone.length <= 6) return phone
   return phone.slice(0, -6).replace(/./g, '*') + phone.slice(-6)

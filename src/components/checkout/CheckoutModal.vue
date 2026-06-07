@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/order'
 import { formatCurrency } from '@/utils/helpers'
 import { ZALO_LINK } from '@/utils/constants'
+import { api } from '@/services/api'
 import BaseButton from '@/components/base/BaseButton.vue'
 
 interface Props {
@@ -34,6 +35,16 @@ function handlePaid() {
   // Cả 200k và 500k đều có chatRoomId
   if (orderStore.chatRoomId) {
     setTimeout(() => router.push(`/chat/${orderStore.chatRoomId}`), 1800)
+  }
+}
+
+async function bypassPayment() {
+  if (!order.value) return
+  try {
+    await api.post(`/orders/${order.value.id}/bypass-pay`)
+    handlePaid()
+  } catch (err) {
+    console.error('Không thể bỏ qua thanh toán:', err)
   }
 }
 
@@ -152,6 +163,12 @@ onUnmounted(() => {
             Đang chờ xác nhận...
           </div>
           <span :class="countdown < 60 ? 'text-red-400' : 'text-slate-400'">{{ countdownDisplay }}</span>
+        </div>
+
+        <div class="mt-4 border-t border-dashed border-slate-700/60 pt-4">
+          <BaseButton size="sm" variant="ghost" class="w-full !border-red-500/50 !text-red-400 hover:!bg-red-500/10 transition-all font-semibold" @click="bypassPayment">
+            ⚠️ Bỏ qua thanh toán (Test)
+          </BaseButton>
         </div>
       </template>
     </div>

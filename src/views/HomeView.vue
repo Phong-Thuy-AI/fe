@@ -55,7 +55,7 @@ async function submit() {
           <span class="text-2xl">🕉️</span>
           <span class="font-bold tracking-wide gold-gradient-text uppercase text-lg">Phong Thủy SIM Cát Hùng</span>
         </div>
-        <router-link to="/admin/login" class="text-xs text-slate-600 hover:text-slate-400 transition">Admin</router-link>
+        <router-link to="/auth/login" class="text-xs text-slate-600 hover:text-slate-400 transition">Admin</router-link>
       </div>
     </header>
 

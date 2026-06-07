@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { api } from '@/services/api'
-import { formatCurrency, formatDate } from '@/utils/helpers'
-import { ZALO_LINK, ZALO_ADMIN_NUMBER } from '@/utils/constants'
+import { formatCurrency, formatDateTime } from '@/utils/helpers'
+
 import type { ChatRoom } from '@/types'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
@@ -55,12 +55,6 @@ async function completeOrder(orderId: number) {
   try {
     await api.patch(`/orders/${orderId}/complete`)
     await chatStore.fetchActiveRooms()
-    // Remove completed room from active list
-    const idx = chatStore.activeRooms.findIndex(r => r.orderId === orderId)
-    if (idx !== -1) chatStore.activeRooms.splice(idx, 1)
-    if (chatStore.currentRoomId && selectedRoom.value?.orderId === orderId) {
-      chatStore.currentRoomId = null
-    }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: { message?: string } } } }
     alert(err?.response?.data?.error?.message ?? 'Lỗi khi hoàn thành đơn hàng.')
@@ -110,23 +104,35 @@ onUnmounted(() => chatStore.disconnect())
 <template>
   <div class="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
     <!-- Top bar -->
-    <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-4 h-14 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-xl">🕉️</span>
-        <span class="font-bold gold-gradient-text text-sm">Admin Dashboard</span>
-        <span class="text-xs text-slate-500">{{ authStore.adminUsername }}</span>
+    <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-3 sm:px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-1.5 sm:gap-3">
+        <span class="text-lg sm:text-xl hidden sm:inline">🕉️</span>
+        <span class="font-bold gold-gradient-text text-xs sm:text-sm hidden sm:inline">Admin Dashboard</span>
+        <span class="font-bold gold-gradient-text text-xs sm:hidden">Admin</span>
+        <span class="text-[10px] sm:text-xs text-slate-500 hidden md:inline">{{ authStore.adminUsername }}</span>
       </div>
-      <div class="flex items-center gap-2">
-        <button @click="activeTab = 'chat'" :class="['text-xs px-3 py-1.5 rounded-lg transition', activeTab==='chat' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">💬 Phòng Chat</button>
-        <button @click="activeTab = 'config'" :class="['text-xs px-3 py-1.5 rounded-lg transition', activeTab==='config' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">⚙️ Cấu Hình</button>
-        <BaseButton variant="ghost" size="sm" @click="logout">Đăng xuất</BaseButton>
+      <div class="flex items-center gap-1 sm:gap-2">
+        <button @click="activeTab = 'chat'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='chat' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          <span class="hidden sm:inline">💬 Phòng Chat</span>
+          <span class="inline sm:hidden">💬 Chat</span>
+        </button>
+        <button @click="activeTab = 'config'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='config' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          <span class="hidden sm:inline">⚙️ Cấu Hình</span>
+          <span class="inline sm:hidden">⚙️ Cài đặt</span>
+        </button>
+        <BaseButton variant="ghost" size="sm" class="!px-2 sm:!px-4 !py-1 text-[11px] sm:text-xs shrink-0" @click="logout">Đăng xuất</BaseButton>
       </div>
     </header>
 
     <!-- Chat Tab -->
     <div v-if="activeTab === 'chat'" class="flex flex-1 overflow-hidden">
       <!-- Sidebar -->
-      <aside class="w-72 shrink-0 border-r border-slate-800 flex flex-col overflow-hidden">
+      <aside
+        :class="[
+          'shrink-0 border-r border-slate-800 flex flex-col overflow-hidden transition-all duration-300',
+          chatStore.currentRoomId ? 'hidden md:flex md:w-72' : 'w-full md:w-72'
+        ]"
+      >
         <div class="px-4 py-3 border-b border-slate-800">
           <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Phòng Chat Active</p>
           <div class="flex items-center gap-1.5 mt-1">
@@ -141,14 +147,24 @@ onUnmounted(() => chatStore.disconnect())
             :key="room.id"
             @click="selectRoom(room)"
             :class="[
-              'w-full text-left px-4 py-3 border-b border-slate-800/50 hover:bg-slate-800/40 transition-all',
+              'w-full text-left px-4 py-3 border-b border-slate-800/50 hover:bg-slate-800/40 transition-all relative',
               chatStore.currentRoomId === room.id ? 'bg-gold-500/10 border-l-2 border-l-gold-500' : '',
+              room.unreadCount && room.unreadCount > 0 ? 'bg-slate-900/60 font-semibold' : '',
+              room.status === 'closed' || room.order?.status === 'completed' ? 'opacity-70' : ''
             ]"
           >
-            <div class="flex items-center gap-1.5 mb-0.5">
+            <!-- Badge đếm tin nhắn chưa đọc nổi bật -->
+            <div v-if="room.unreadCount && room.unreadCount > 0" class="absolute right-4 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center shadow-lg animate-pulse">
+              {{ room.unreadCount }}
+            </div>
+
+            <div class="flex items-center gap-1.5 mb-0.5 pr-8">
               <span class="text-xs">{{ (room.order as any)?.packageType === '500k' ? '🌟' : '💬' }}</span>
-              <span class="font-medium text-sm text-slate-200 truncate">{{ room.order?.user?.name ?? `Phòng #${room.id}` }}</span>
-              <span v-if="room.sourceType === 'referral'" class="ml-auto text-xs bg-purple-500/15 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-full shrink-0">🤝</span>
+              <span :class="['font-medium text-sm truncate', room.unreadCount && room.unreadCount > 0 ? 'text-white font-bold' : 'text-slate-200']">
+                {{ room.order?.user?.name ?? `Phòng #${room.id}` }}
+              </span>
+              <span v-if="room.status === 'closed' || room.order?.status === 'completed'" class="text-xs text-green-400 font-bold shrink-0 ml-1" title="Đã hoàn thành">✓</span>
+              <span v-if="room.sourceType === 'referral'" class="text-xs bg-purple-500/15 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-full shrink-0">🤝</span>
             </div>
             <div class="text-xs text-slate-500">{{ room.order?.user?.phone ?? '' }}</div>
             <div class="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -160,7 +176,12 @@ onUnmounted(() => chatStore.disconnect())
       </aside>
 
       <!-- Chat panel -->
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div
+        :class="[
+          'flex-col overflow-hidden transition-all duration-300',
+          chatStore.currentRoomId ? 'flex flex-1 w-full' : 'hidden md:flex md:flex-1'
+        ]"
+      >
         <div v-if="!selectedRoom" class="flex-1 flex items-center justify-center text-slate-600 flex-col gap-3">
           <span class="text-5xl">💬</span>
           <p>Chọn phòng chat bên trái để bắt đầu tư vấn</p>
@@ -168,7 +189,17 @@ onUnmounted(() => chatStore.disconnect())
 
         <template v-else>
           <!-- Room header -->
-          <div class="shrink-0 border-b border-slate-800 px-4 py-3 bg-slate-900/40 space-y-1">
+          <div class="shrink-0 border-b border-slate-800 px-4 py-3 bg-slate-900/40 space-y-2">
+            <!-- Back button for mobile -->
+            <div class="flex items-center md:hidden pb-1">
+              <button
+                @click="chatStore.currentRoomId = null"
+                class="flex items-center gap-1.5 text-gold-300 hover:text-gold-200 text-xs font-semibold py-1.5 px-3 rounded-lg bg-gold-500/10 border border-gold-500/20 active:scale-95 transition-all"
+              >
+                ← Quay lại danh sách
+              </button>
+            </div>
+
             <div class="flex items-start justify-between gap-3">
               <div>
                 <div class="flex items-center gap-2">
@@ -186,21 +217,25 @@ onUnmounted(() => chatStore.disconnect())
                 <div v-if="selectedRoomCarrier" class="text-xs text-slate-500">📡 Nhà mạng: {{ selectedRoomCarrier }}</div>
                 <div v-if="selectedRoomTopic" class="text-xs text-slate-500">💡 Vấn đề: {{ selectedRoomTopic }}</div>
               </div>
-              <div class="flex items-center gap-2 shrink-0">
+              <div class="flex flex-wrap items-center justify-end gap-1.5 shrink-0 max-w-[50%] md:max-w-none">
                 <!-- Zalo cho 500k -->
-                <a v-if="selectedRoomIs500k" :href="ZALO_LINK" target="_blank">
-                  <BaseButton size="sm" variant="ghost" class="!border-purple-500/40 !text-purple-300">
-                    Zalo {{ ZALO_ADMIN_NUMBER }}
+                <a v-if="selectedRoomIs500k && selectedRoom?.order?.user?.phone" :href="'https://zalo.me/' + selectedRoom.order.user.phone" target="_blank">
+                  <BaseButton size="sm" variant="ghost" class="!px-2.5 sm:!px-4 !py-1 text-xs !border-purple-500/40 !text-purple-300 shrink-0">
+                    Zalo {{ selectedRoom.order.user.phone }}
                   </BaseButton>
                 </a>
                 <BaseButton
                   v-if="(selectedRoom.order as any)?.status === 'paid'"
                   size="sm"
+                  class="!px-2.5 sm:!px-4 !py-1 text-xs shrink-0"
                   :loading="completingOrderId === (selectedRoom.order as any)?.id"
                   @click="selectedRoom.order && completeOrder((selectedRoom.order as any).id)"
                 >
                   ✅ Hoàn thành đơn
                 </BaseButton>
+                <span v-if="(selectedRoom.order as any)?.status === 'completed'" class="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1.5 rounded-lg font-semibold shrink-0">
+                  ✅ Đã hoàn thành
+                </span>
               </div>
             </div>
           </div>
@@ -226,7 +261,7 @@ onUnmounted(() => chatStore.disconnect())
                     : 'bg-slate-800 border border-slate-700/50 text-slate-200 rounded-bl-sm',
                 ]">
                   <p class="whitespace-pre-wrap">{{ msg.message }}</p>
-                  <p class="text-xs mt-1 opacity-40 text-right">{{ formatDate(msg.createdAt) }}</p>
+                  <p class="text-xs mt-1 opacity-40 text-right">{{ formatDateTime(msg.createdAt) }}</p>
                 </div>
               </div>
             </template>
