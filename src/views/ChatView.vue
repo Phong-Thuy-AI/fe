@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 import { api } from '@/services/api'
-import { formatDate } from '@/utils/helpers'
+import { formatDateTime } from '@/utils/helpers'
 import { ZALO_LINK, ZALO_ADMIN_NUMBER } from '@/utils/constants'
 import type { ChatRoom } from '@/types'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -126,7 +126,7 @@ const messages = computed(() => chatStore.messages)
               : 'bg-slate-800 border border-slate-700/50 text-slate-200 rounded-bl-sm',
           ]">
             <p class="whitespace-pre-wrap">{{ msg.message }}</p>
-            <p class="text-xs mt-1 opacity-50 text-right">{{ formatDate(msg.createdAt) }}</p>
+            <p class="text-xs mt-1 opacity-50 text-right">{{ formatDateTime(msg.createdAt) }}</p>
           </div>
         </div>
       </template>

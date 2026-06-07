@@ -72,6 +72,8 @@ export interface ChatRoom {
   sourceType?: 'direct' | 'referral'
   createdAt: string
   order?: Order & { user?: User }
+  unreadCount?: number
+  lastMessage?: ChatMessage | null
 }
 
 export interface ApiResponse<T> {

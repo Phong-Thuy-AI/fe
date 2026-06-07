@@ -11,6 +11,20 @@ export const useChatStore = defineStore('chat', () => {
   const isConnected = ref(false)
   const isLoadingHistory = ref(false)
 
+  const lastReadMap = ref<Record<number, number>>({})
+
+  function loadLastReadMap() {
+    try {
+      lastReadMap.value = JSON.parse(localStorage.getItem('admin_last_read') || '{}')
+    } catch {
+      lastReadMap.value = {}
+    }
+  }
+
+  function saveLastReadMap() {
+    localStorage.setItem('admin_last_read', JSON.stringify(lastReadMap.value))
+  }
+
   function connect() {
     if (!socket.connected) socket.connect()
 
@@ -18,14 +32,28 @@ export const useChatStore = defineStore('chat', () => {
     socket.on('disconnect', () => { isConnected.value = false })
 
     socket.on('receive_message', (msg: ChatMessage) => {
-      // Tránh duplicate nếu cùng roomId đang mở
       if (msg.roomId === currentRoomId.value) {
         messages.value.push(msg)
+        lastReadMap.value[msg.roomId] = msg.id
+        saveLastReadMap()
+      } else {
+        const room = activeRooms.value.find(r => r.id === msg.roomId)
+        if (room) {
+          room.unreadCount = (room.unreadCount || 0) + 1
+          room.lastMessage = msg
+          
+          const idx = activeRooms.value.indexOf(room)
+          if (idx > 0) {
+            activeRooms.value.splice(idx, 1)
+            activeRooms.value.unshift(room)
+          }
+        }
       }
     })
 
     socket.on('new_chat_room', (room: ChatRoom) => {
       if (!activeRooms.value.find(r => r.id === room.id)) {
+        room.unreadCount = 1
         activeRooms.value.unshift(room)
       }
     })
@@ -49,6 +77,15 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const res = await api.get<{ data: { messages: ChatMessage[] } }>(`/chats/rooms/${roomId}/messages`)
       messages.value = res.data.data.messages
+
+      if (messages.value.length > 0) {
+        const lastMsgId = messages.value[messages.value.length - 1].id
+        lastReadMap.value[roomId] = lastMsgId
+        saveLastReadMap()
+      }
+
+      const room = activeRooms.value.find(r => r.id === roomId)
+      if (room) room.unreadCount = 0
     } finally {
       isLoadingHistory.value = false
     }
@@ -61,8 +98,18 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function fetchActiveRooms() {
+    loadLastReadMap()
     const res = await api.get<{ data: ChatRoom[] }>('/chats/rooms/active')
-    activeRooms.value = res.data.data
+
+    activeRooms.value = res.data.data.map(room => {
+      const lastMsgId = room.lastMessage?.id
+      if (lastMsgId) {
+        if ((lastReadMap.value[room.id] && lastReadMap.value[room.id] >= lastMsgId) || room.lastMessage?.senderType === 'admin') {
+          room.unreadCount = 0
+        }
+      }
+      return room
+    })
   }
 
   return {

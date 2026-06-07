@@ -176,8 +176,9 @@ const ratingColor: Record<string, string> = {
                 </div>
               </div>
               <ul class="text-xs text-slate-400 space-y-1">
-                <li>✔ Tư vấn chọn SIM cải vận tài chính</li>
-                <li>✔ SIM từ 2 – 3 triệu trở xuống</li>
+                <li>✔ Luận giải chọn SIM mới (chưa gồm tiền mua SIM)</li>
+                <li>✔ Giá SIM đề xuất dao động từ 2 – 3 triệu trở xuống</li>
+                <li>✔ Tư vấn chọn SIM cải vận tài chính chủ yếu</li>
                 <li>✔ Chat trực tiếp với tư vấn viên</li>
                 <li>✔ 1 tháng nhận tử vi miễn phí</li>
               </ul>
