@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
@@ -8,19 +8,17 @@ import { formatCurrency, formatDateTime } from '@/utils/helpers'
 
 import type { ChatRoom } from '@/types'
 import BaseButton from '@/components/base/BaseButton.vue'
-import BaseInput from '@/components/base/BaseInput.vue'
 import GlassCard from '@/components/base/GlassCard.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
 
-type Tab = 'chat' | 'config'
+type Tab = 'chat' | 'orders' | 'users' | 'emails' | 'config'
 const activeTab = ref<Tab>('chat')
 const newMessage = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
 
-const geminiKey = ref('')
 const configSaving = ref(false)
 const configMsg = ref('')
 const completingOrderId = ref<number | null>(null)
@@ -63,20 +61,7 @@ async function completeOrder(orderId: number) {
   }
 }
 
-async function saveGeminiKey() {
-  if (!geminiKey.value.trim()) return
-  configSaving.value = true
-  configMsg.value = ''
-  try {
-    await api.post('/admin/config', { key: 'GEMINI_API_KEY', value: geminiKey.value.trim() })
-    configMsg.value = '✅ Đã lưu API key thành công.'
-    geminiKey.value = ''
-  } catch {
-    configMsg.value = '❌ Lỗi khi lưu. Vui lòng thử lại.'
-  } finally {
-    configSaving.value = false
-  }
-}
+
 
 async function triggerHoroscopes() {
   try {
@@ -92,6 +77,245 @@ async function logout() {
   router.replace('/admin/login')
 }
 
+// Trạng thái Quản lý Đơn hàng
+const orders = ref<any[]>([])
+const loadingOrders = ref(false)
+const orderSearch = ref('')
+const orderStatusFilter = ref('all')
+
+// Trạng thái Quản lý Khách hàng
+const users = ref<any[]>([])
+const loadingUsers = ref(false)
+const userSearch = ref('')
+const extendingUserId = ref<number | null>(null)
+
+// Trạng thái Nhật ký Gửi Mail
+const emailLogs = ref<any[]>([])
+const loadingEmailLogs = ref(false)
+const emailLogsSearch = ref('')
+const emailLogsStatusFilter = ref('all')
+const emailLogsDateFilter = ref('')
+
+async function fetchEmailLogs() {
+  loadingEmailLogs.value = true
+  try {
+    const res = await api.get<{ data: any[] }>('/admin/email-logs', {
+      params: {
+        status: emailLogsStatusFilter.value,
+        search: emailLogsSearch.value,
+        date: emailLogsDateFilter.value
+      }
+    })
+    emailLogs.value = res.data.data
+  } catch (err) {
+    console.error('Lỗi khi tải nhật ký gửi mail:', err)
+  } finally {
+    loadingEmailLogs.value = false
+  }
+}
+
+async function fetchOrders() {
+  loadingOrders.value = true
+  try {
+    const res = await api.get<{ data: any[] }>('/admin/orders', {
+      params: {
+        status: orderStatusFilter.value,
+        search: orderSearch.value
+      }
+    })
+    orders.value = res.data.data
+  } catch (err) {
+    console.error('Lỗi khi tải đơn hàng:', err)
+  } finally {
+    loadingOrders.value = false
+  }
+}
+
+async function fetchUsers() {
+  loadingUsers.value = true
+  try {
+    const res = await api.get<{ data: any[] }>('/admin/users', {
+      params: {
+        search: userSearch.value
+      }
+    })
+    users.value = res.data.data
+  } catch (err) {
+    console.error('Lỗi khi tải khách hàng:', err)
+  } finally {
+    loadingUsers.value = false
+  }
+}
+
+async function manualApproveOrder(orderId: number) {
+  completingOrderId.value = orderId
+  try {
+    await api.post(`/admin/orders/${orderId}/force-pay`)
+    await fetchOrders()
+    alert('Đã duyệt thanh toán đơn hàng thành công.')
+  } catch (e: any) {
+    alert(e?.response?.data?.error?.message ?? 'Lỗi khi duyệt đơn hàng.')
+  } finally {
+    completingOrderId.value = null
+  }
+}
+
+async function extendUserSub(userId: number) {
+  extendingUserId.value = userId
+  try {
+    await api.patch(`/admin/users/${userId}/extend`)
+    await fetchUsers()
+    alert('Gia hạn thêm 30 ngày xem tử vi thành công.')
+  } catch (e: any) {
+    alert(e?.response?.data?.error?.message ?? 'Lỗi khi gia hạn.')
+  } finally {
+    extendingUserId.value = null
+  }
+}
+
+function isSubscriberActive(expiry: string | null) {
+  if (!expiry) return false
+  return new Date(expiry) > new Date()
+}
+
+const aiProvider = ref('gemini')
+const geminiKey = ref('')
+const openaiKey = ref('')
+const aiModel = ref('')
+const aiModels = ref<string[]>([])
+const loadingModels = ref(false)
+
+const smtpHost = ref('')
+const smtpPort = ref('587')
+const smtpUser = ref('')
+const smtpPass = ref('')
+const emailFrom = ref('')
+const testToEmail = ref('')
+
+const testingConnection = ref(false)
+const testingEmail = ref(false)
+
+async function fetchConfigs() {
+  configMsg.value = ''
+  try {
+    const res = await api.get<{ data: Record<string, string> }>('/admin/config/all')
+    const data = res.data.data
+    
+    aiProvider.value = data.AI_PROVIDER || 'gemini'
+    aiModel.value = data.AI_MODEL || ''
+    
+    geminiKey.value = data.GEMINI_API_KEY || ''
+    openaiKey.value = data.OPENAI_API_KEY || ''
+    
+    smtpHost.value = data.SMTP_HOST || ''
+    smtpPort.value = data.SMTP_PORT || '587'
+    smtpUser.value = data.SMTP_USER || ''
+    smtpPass.value = data.SMTP_PASS || ''
+    emailFrom.value = data.EMAIL_FROM || ''
+    
+    if (geminiKey.value || openaiKey.value) {
+      await loadAiModels()
+    }
+  } catch (err) {
+    console.error('Lỗi khi tải cấu hình:', err)
+  }
+}
+
+async function loadAiModels() {
+  loadingModels.value = true
+  const activeKey = aiProvider.value === 'openai' ? openaiKey.value : geminiKey.value
+  try {
+    const res = await api.get<{ data: string[] }>('/admin/ai/models', {
+      params: {
+        provider: aiProvider.value,
+        apiKey: activeKey
+      }
+    })
+    aiModels.value = res.data.data
+    if (!aiModels.value.includes(aiModel.value)) {
+      aiModel.value = aiModels.value[0] || ''
+    }
+  } catch (err: any) {
+    console.error('Lỗi tải model:', err)
+    alert(err?.response?.data?.error?.message ?? 'Lỗi khi tải danh sách model AI.')
+  } finally {
+    loadingModels.value = false
+  }
+}
+
+async function testAi() {
+  testingConnection.value = true
+  const activeKey = aiProvider.value === 'openai' ? openaiKey.value : geminiKey.value
+  try {
+    const res = await api.post<{ data: { answer: string } }>('/admin/ai/test-connection', {
+      provider: aiProvider.value,
+      apiKey: activeKey,
+      model: aiModel.value
+    })
+    alert(`✅ Kết nối AI thành công!\nPhản hồi từ AI: "${res.data.data.answer}"`)
+  } catch (err: any) {
+    alert(err?.response?.data?.error?.message ?? 'Kết nối AI thất bại.')
+  } finally {
+    testingConnection.value = false
+  }
+}
+
+async function testEmail() {
+  if (!testToEmail.value) {
+    alert('Vui lòng điền email nhận thử.')
+    return
+  }
+  testingEmail.value = true
+  try {
+    await api.post('/admin/email/test-send', {
+      host: smtpHost.value,
+      port: smtpPort.value,
+      user: smtpUser.value,
+      pass: smtpPass.value,
+      from: emailFrom.value,
+      toEmail: testToEmail.value
+    })
+    alert('✅ Đã gửi email thử nghiệm thành công! Hãy kiểm tra hòm thư của bạn.')
+  } catch (err: any) {
+    alert(err?.response?.data?.error?.message ?? 'Gửi email thử nghiệm thất bại.')
+  } finally {
+    testingEmail.value = false
+  }
+}
+
+async function saveAllConfigs() {
+  configSaving.value = true
+  configMsg.value = ''
+  try {
+    await api.post('/admin/config/batch', {
+      configs: {
+        AI_PROVIDER: aiProvider.value,
+        AI_MODEL: aiModel.value,
+        GEMINI_API_KEY: geminiKey.value,
+        OPENAI_API_KEY: openaiKey.value,
+        SMTP_HOST: smtpHost.value,
+        SMTP_PORT: smtpPort.value,
+        SMTP_USER: smtpUser.value,
+        SMTP_PASS: smtpPass.value,
+        EMAIL_FROM: emailFrom.value
+      }
+    })
+    configMsg.value = '✅ Đã lưu cấu hình hệ thống thành công.'
+    await fetchConfigs()
+  } catch (err) {
+    configMsg.value = '❌ Lỗi khi lưu cấu hình. Vui lòng thử lại.'
+  } finally {
+    configSaving.value = false
+  }
+}
+
+watch(activeTab, (newTab) => {
+  if (newTab === 'orders') fetchOrders()
+  if (newTab === 'users') fetchUsers()
+  if (newTab === 'emails') fetchEmailLogs()
+  if (newTab === 'config') fetchConfigs()
+})
+
 onMounted(async () => {
   await nextTick()
   chatStore.connect()
@@ -105,16 +329,28 @@ onUnmounted(() => chatStore.disconnect())
   <div class="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
     <!-- Top bar -->
     <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-3 sm:px-4 h-14 flex items-center justify-between">
-      <div class="flex items-center gap-1.5 sm:gap-3">
+      <div class="items-center gap-1.5 sm:gap-3 hidden sm:flex">
         <span class="text-lg sm:text-xl hidden sm:inline">🕉️</span>
         <span class="font-bold gold-gradient-text text-xs sm:text-sm hidden sm:inline">Admin Dashboard</span>
         <span class="font-bold gold-gradient-text text-xs sm:hidden">Admin</span>
         <span class="text-[10px] sm:text-xs text-slate-500 hidden md:inline">{{ authStore.adminUsername }}</span>
       </div>
-      <div class="flex items-center gap-1 sm:gap-2">
+      <div class="flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full whitespace-nowrap">
         <button @click="activeTab = 'chat'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='chat' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
           <span class="hidden sm:inline">💬 Phòng Chat</span>
           <span class="inline sm:hidden">💬 Chat</span>
+        </button>
+        <button @click="activeTab = 'orders'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='orders' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          <span class="hidden sm:inline">📊 Đơn Hàng</span>
+          <span class="inline sm:hidden">📊 Đơn</span>
+        </button>
+        <button @click="activeTab = 'users'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='users' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          <span class="hidden sm:inline">👥 Khách Hàng</span>
+          <span class="inline sm:hidden">👥 Khách</span>
+        </button>
+        <button @click="activeTab = 'emails'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='emails' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          <span class="hidden sm:inline">📧 Nhật ký Mail</span>
+          <span class="inline sm:hidden">📧 Mail</span>
         </button>
         <button @click="activeTab = 'config'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='config' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
           <span class="hidden sm:inline">⚙️ Cấu Hình</span>
@@ -284,22 +520,446 @@ onUnmounted(() => chatStore.disconnect())
       </div>
     </div>
 
+    <!-- Orders Tab -->
+    <div v-if="activeTab === 'orders'" class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h2 class="text-xl font-bold gold-gradient-text">📊 Quản Lý Đơn Hàng</h2>
+          <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <!-- Search -->
+            <input
+              v-model="orderSearch"
+              type="text"
+              placeholder="Tìm SĐT, Họ tên, Mã..."
+              class="flex-1 sm:w-64 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              @input="fetchOrders"
+            />
+            <!-- Filter -->
+            <select
+              v-model="orderStatusFilter"
+              class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              @change="fetchOrders"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="pending">🟡 Chờ thanh toán</option>
+              <option value="paid">🔵 Đã thanh toán</option>
+              <option value="completed">🟢 Đã hoàn thành</option>
+              <option value="expired">⚪ Hết hạn</option>
+            </select>
+          </div>
+        </div>
+
+        <div v-if="loadingOrders" class="flex justify-center py-12">
+          <div class="w-8 h-8 border-4 border-gold-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+
+        <div v-else-if="orders.length === 0" class="text-center py-12 text-slate-500">
+          Không tìm thấy đơn hàng nào.
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
+          <table class="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr class="border-b border-slate-800 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th class="px-6 py-4">Mã đơn</th>
+                <th class="px-6 py-4">Khách hàng</th>
+                <th class="px-6 py-4">Gói dịch vụ</th>
+                <th class="px-6 py-4">Số tiền</th>
+                <th class="px-6 py-4">Trạng thái</th>
+                <th class="px-6 py-4 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50 text-sm">
+              <tr v-for="order in orders" :key="order.id" class="hover:bg-slate-800/20 transition-all">
+                <td class="px-6 py-4 font-mono font-medium text-slate-300">{{ order.paymentCode }}</td>
+                <td class="px-6 py-4">
+                  <div class="font-medium text-slate-200">{{ order.user?.name }}</div>
+                  <div class="text-xs text-slate-500">{{ order.user?.phone }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <span :class="order.packageType === '500k' ? 'text-purple-400 font-semibold' : 'text-gold-400'">
+                    {{ order.packageType === '500k' ? '🌟 Gói 500k' : '💬 Gói 200k' }}
+                  </span>
+                  <div class="text-[11px] text-slate-500 mt-0.5">
+                    {{ order.packageType === '500k' ? `Vấn đề: ${order.consultationTopic || '—'}` : `Nhà mạng: ${order.carrier || '—'}` }}
+                  </div>
+                </td>
+                <td class="px-6 py-4 font-semibold text-slate-300">{{ formatCurrency(Number(order.amount)) }}</td>
+                <td class="px-6 py-4">
+                  <span v-if="order.status === 'pending'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">🟡 Chờ thanh toán</span>
+                  <span v-else-if="order.status === 'paid'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">🔵 Đã thanh toán</span>
+                  <span v-else-if="order.status === 'completed'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">🟢 Đã hoàn thành</span>
+                  <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">⚪ Hết hạn</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <BaseButton
+                      v-if="order.status === 'pending'"
+                      size="sm"
+                      variant="ghost"
+                      class="!py-1 !px-2.5 text-xs"
+                      :loading="completingOrderId === order.id"
+                      @click="manualApproveOrder(order.id)"
+                    >
+                      Duyệt thanh toán
+                    </BaseButton>
+                    <BaseButton
+                      v-if="order.status === 'paid'"
+                      size="sm"
+                      class="!py-1 !px-2.5 text-xs"
+                      :loading="completingOrderId === order.id"
+                      @click="completeOrder(order.id)"
+                    >
+                      Hoàn thành đơn
+                    </BaseButton>
+                    <span v-if="order.status === 'completed'" class="text-xs text-slate-500 py-1">Hoàn tất</span>
+                    <span v-if="order.status === 'expired'" class="text-xs text-slate-500 py-1">Đã hết hạn</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users Tab -->
+    <div v-if="activeTab === 'users'" class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h2 class="text-xl font-bold gold-gradient-text">👥 Quản Lý Khách Hàng</h2>
+          <div class="w-full sm:w-64">
+            <input
+              v-model="userSearch"
+              type="text"
+              placeholder="Tìm Họ tên, Số điện thoại..."
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              @input="fetchUsers"
+            />
+          </div>
+        </div>
+
+        <div v-if="loadingUsers" class="flex justify-center py-12">
+          <div class="w-8 h-8 border-4 border-gold-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+
+        <div v-else-if="users.length === 0" class="text-center py-12 text-slate-500">
+          Không tìm thấy khách hàng nào.
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
+          <table class="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr class="border-b border-slate-800 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th class="px-6 py-4">Khách hàng</th>
+                <th class="px-6 py-4">Ngày sinh (Dương lịch)</th>
+                <th class="px-6 py-4">Giờ sinh / Mệnh</th>
+                <th class="px-6 py-4">Hạn dùng gói tử vi</th>
+                <th class="px-6 py-4 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50 text-sm">
+              <tr v-for="user in users" :key="user.id" class="hover:bg-slate-800/20 transition-all">
+                <td class="px-6 py-4">
+                  <div class="font-medium text-slate-200">{{ user.name }}</div>
+                  <div class="text-xs text-slate-500">{{ user.phone }}</div>
+                  <div v-if="user.email" class="text-xs text-slate-400 mt-0.5">{{ user.email }}</div>
+                </td>
+                <td class="px-6 py-4 text-slate-300">{{ user.dob }}</td>
+                <td class="px-6 py-4 text-slate-300">
+                  <div>Giờ: {{ user.tob }}</div>
+                  <div class="text-xs text-gold-500 mt-0.5">Mệnh: {{ user.menh }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <span v-if="isSubscriberActive(user.horoscopeExpiresAt)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                    Hạn: {{ formatDateTime(user.horoscopeExpiresAt) }}
+                  </span>
+                  <span v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                    {{ user.horoscopeExpiresAt ? 'Hết hạn (' + formatDateTime(user.horoscopeExpiresAt) + ')' : 'Chưa đăng ký' }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <BaseButton
+                    size="sm"
+                    variant="ghost"
+                    class="!py-1 !px-2.5 text-xs"
+                    :loading="extendingUserId === user.id"
+                    @click="extendUserSub(user.id)"
+                  >
+                    +30 Ngày
+                  </BaseButton>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email Logs Tab -->
+    <div v-if="activeTab === 'emails'" class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h2 class="text-xl font-bold gold-gradient-text">📧 Nhật Ký Gửi Mail Hằng Ngày</h2>
+          <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <!-- Search -->
+            <input
+              v-model="emailLogsSearch"
+              type="text"
+              placeholder="Tìm Email, Họ tên, SĐT..."
+              class="flex-1 sm:w-64 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              @input="fetchEmailLogs"
+            />
+            <!-- Date Filter -->
+            <input
+              v-model="emailLogsDateFilter"
+              type="date"
+              class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              @change="fetchEmailLogs"
+            />
+            <!-- Status Filter -->
+            <select
+              v-model="emailLogsStatusFilter"
+              class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              @change="fetchEmailLogs"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="success">🟢 Thành công</option>
+              <option value="failed">🔴 Thất bại</option>
+            </select>
+          </div>
+        </div>
+
+        <div v-if="loadingEmailLogs" class="flex justify-center py-12">
+          <div class="w-8 h-8 border-4 border-gold-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+
+        <div v-else-if="emailLogs.length === 0" class="text-center py-12 text-slate-500">
+          Không tìm thấy nhật ký gửi mail nào.
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
+          <table class="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr class="border-b border-slate-800 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th class="px-6 py-4">Ngày nhận</th>
+                <th class="px-6 py-4">Khách hàng</th>
+                <th class="px-6 py-4">Mệnh / Vấn đề</th>
+                <th class="px-6 py-4">Trạng thái</th>
+                <th class="px-6 py-4">Chi tiết lỗi</th>
+                <th class="px-6 py-4 text-right">Thời gian gửi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50 text-sm">
+              <tr v-for="log in emailLogs" :key="log.id" class="hover:bg-slate-800/20 transition-all">
+                <td class="px-6 py-4 font-mono font-medium text-slate-300">{{ log.date }}</td>
+                <td class="px-6 py-4">
+                  <div class="font-medium text-slate-200">{{ log.user?.name || 'Khách vãng lai' }}</div>
+                  <div class="text-xs text-slate-500">{{ log.email }}</div>
+                  <div class="text-[11px] text-slate-500">{{ log.user?.phone || '' }}</div>
+                </td>
+                <td class="px-6 py-4 text-slate-300">
+                  <div class="text-xs">Mệnh: <span class="text-gold-500 font-semibold">{{ log.user?.menh || '—' }}</span></div>
+                  <div class="text-xs text-slate-400 mt-0.5">Vấn đề: {{ log.user?.focusArea || '—' }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <span v-if="log.status === 'success'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">🟢 Thành công</span>
+                  <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">🔴 Thất bại</span>
+                </td>
+                <td class="px-6 py-4 max-w-xs truncate" :title="log.error">
+                  <span class="text-xs text-red-400/80 italic font-mono">{{ log.error || '—' }}</span>
+                </td>
+                <td class="px-6 py-4 text-right text-slate-400 font-mono text-xs">
+                  {{ formatDateTime(log.sentAt) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Config Tab -->
-    <div v-if="activeTab === 'config'" class="flex-1 overflow-y-auto p-6">
-      <div class="max-w-lg mx-auto space-y-6">
-        <h2 class="text-lg font-bold gold-gradient-text">⚙️ Cấu Hình Hệ Thống</h2>
+    <div v-if="activeTab === 'config'" class="flex-grow overflow-y-auto p-4 sm:p-6">
+      <div class="max-w-2xl mx-auto space-y-6">
+        <h2 class="text-xl font-bold gold-gradient-text">⚙️ Cấu Hình Hệ Thống</h2>
+
+        <!-- AI Config Card -->
         <GlassCard class="p-5 space-y-4">
-          <h3 class="font-semibold text-slate-200">🤖 Gemini AI API Key</h3>
-          <p class="text-xs text-slate-400">Nhập API key mới để cập nhật. Key hiện tại đã được ẩn để bảo mật.</p>
-          <BaseInput v-model="geminiKey" type="password" label="API Key mới" placeholder="AIza..." />
-          <BaseButton :loading="configSaving" @click="saveGeminiKey">Lưu API Key</BaseButton>
+          <h3 class="font-semibold text-slate-200 flex items-center gap-2 text-base">🤖 Cấu Hình Trí Tuệ Nhân Tạo (AI)</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Nhà cung cấp AI</label>
+              <select
+                v-model="aiProvider"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+                @change="aiModels = []"
+              >
+                <option value="gemini">Gemini (Google)</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">API Key</label>
+              <input
+                v-if="aiProvider === 'openai'"
+                v-model="openaiKey"
+                type="password"
+                placeholder="sk-..."
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50 font-mono"
+              />
+              <input
+                v-else
+                v-model="geminiKey"
+                type="password"
+                placeholder="AIza..."
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50 font-mono"
+              />
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-4 mt-2">
+            <div class="flex-1">
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Model sử dụng</label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <select
+                  v-model="aiModel"
+                  class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+                  :disabled="loadingModels"
+                >
+                  <option v-if="aiModels.length === 0" value="">-- Bấm tải model để chọn --</option>
+                  <option v-for="m in aiModels" :key="m" :value="m">{{ m }}</option>
+                </select>
+                <BaseButton
+                  variant="ghost"
+                  size="sm"
+                  class="shrink-0 w-full sm:w-auto !py-2 !px-3 text-xs font-semibold"
+                  :loading="loadingModels"
+                  @click="loadAiModels"
+                >
+                  🔄 Tải Model
+                </BaseButton>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-800 flex justify-end gap-3">
+            <BaseButton
+              variant="ghost"
+              size="sm"
+              class="text-xs font-semibold"
+              :loading="testingConnection"
+              @click="testAi"
+            >
+              ⚡ Kiểm tra kết nối AI
+            </BaseButton>
+          </div>
         </GlassCard>
+
+        <!-- SMTP Config Card -->
         <GlassCard class="p-5 space-y-4">
-          <h3 class="font-semibold text-slate-200">📅 Tạo Tử Vi Thủ Công</h3>
-          <p class="text-xs text-slate-400">Kích hoạt ngay job tạo 25 bản tử vi và gửi email cho subscribers. Thường chạy tự động lúc 0:00.</p>
-          <BaseButton variant="ghost" @click="triggerHoroscopes">▶ Chạy ngay</BaseButton>
+          <h3 class="font-semibold text-slate-200 flex items-center gap-2 text-base">📧 Cấu Hình Gửi Mail SMTP</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">SMTP Host</label>
+              <input
+                v-model="smtpHost"
+                type="text"
+                placeholder="smtp.gmail.com"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              />
+            </div>
+            
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">SMTP Port</label>
+              <input
+                v-model="smtpPort"
+                type="text"
+                placeholder="587"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Tài khoản SMTP (User)</label>
+              <input
+                v-model="smtpUser"
+                type="text"
+                placeholder="user@gmail.com"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              />
+            </div>
+            
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Mật khẩu SMTP (Password)</label>
+              <input
+                v-model="smtpPass"
+                type="password"
+                placeholder="mật khẩu ứng dụng..."
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50 font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Email người gửi (EMAIL_FROM)</label>
+            <input
+              v-model="emailFrom"
+              type="text"
+              placeholder="contact@phongthuysimcathung.com"
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+            />
+          </div>
+
+          <div class="pt-4 border-t border-slate-800">
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Hòm thư nhận thử nghiệm</label>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input
+                v-model="testToEmail"
+                type="email"
+                placeholder="email_nhan@gmail.com"
+                class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+              />
+              <BaseButton
+                variant="ghost"
+                size="sm"
+                class="shrink-0 w-full sm:w-auto text-xs font-semibold"
+                :loading="testingEmail"
+                @click="testEmail"
+              >
+                Gửi email thử
+              </BaseButton>
+            </div>
+          </div>
         </GlassCard>
-        <p v-if="configMsg" :class="['text-sm px-4 py-2 rounded-lg', configMsg.startsWith('✅') ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10']">
+
+        <!-- Cron Jobs & Save -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <GlassCard class="p-4 flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h4 class="font-semibold text-sm text-slate-200 font-semibold">📅 Kích hoạt Tử Vi thủ công</h4>
+              <p class="text-xs text-slate-500 mt-0.5">Tạo 25 bản tử vi nhắc vận và gửi email ngay lập tức.</p>
+            </div>
+            <BaseButton variant="ghost" size="sm" class="text-xs font-semibold shrink-0" @click="triggerHoroscopes">
+              ▶ Chạy ngay
+            </BaseButton>
+          </GlassCard>
+          
+          <BaseButton
+            class="w-full sm:w-auto shrink-0 !px-8 !py-3 font-bold text-sm shadow-xl"
+            :loading="configSaving"
+            @click="saveAllConfigs"
+          >
+            💾 Lưu Tất Cả Cấu Hình
+          </BaseButton>
+        </div>
+
+        <p v-if="configMsg" :class="['text-sm px-4 py-2.5 rounded-lg text-center font-semibold border transition-all duration-300', configMsg.startsWith('✅') ? 'text-green-400 bg-green-500/10 border-green-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20']">
           {{ configMsg }}
         </p>
       </div>

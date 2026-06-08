@@ -15,7 +15,7 @@ const router = createRouter({
     { path: '/result', name: 'result', component: ResultView },
     { path: '/chat/:roomId', name: 'chat', component: ChatView },
     { path: '/lookup', name: 'lookup', component: LookupView },
-    { path: '/auth/login', name: 'admin-login', component: AdminLogin },
+    { path: '/login', name: 'admin-login', component: AdminLogin },
     {
       path: '/admin',
       name: 'admin',
