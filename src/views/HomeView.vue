@@ -50,12 +50,14 @@ async function submit() {
   <div class="min-h-screen bg-slate-950 text-slate-100">
     <!-- Header -->
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
-      <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="text-2xl">🕉️</span>
-          <span class="font-bold tracking-wide gold-gradient-text uppercase text-lg">Phong Thủy SIM Cát Hùng</span>
+          <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">Phong Thủy SIM Cát Hùng</span>
         </div>
-        <router-link to="/auth/login" class="text-xs text-slate-600 hover:text-slate-400 transition">Admin</router-link>
+        <router-link to="/lookup" class="text-xs sm:text-sm font-semibold text-gold-400 hover:text-gold-300 transition-all flex items-center gap-1 bg-slate-800/40 hover:bg-slate-800/80 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-700/50 hover:border-gold-500/30">
+          <span>🔍</span> Tra cứu đơn hàng
+        </router-link>
       </div>
     </header>
 
@@ -84,25 +86,27 @@ async function submit() {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Thông tin cá nhân -->
           <BaseInput v-model="form.name" label="Họ và tên" placeholder="Nguyễn Văn An" required />
           <BaseInput v-model="form.email" label="Email" type="email" placeholder="email@example.com" required />
-          <BaseInput v-model="form.phone" label="Số điện thoại" placeholder="0912345678" required />
+
+          <!-- Ngày giờ sinh -->
           <BaseInput v-model="form.dob" label="Ngày sinh (Dương lịch)" type="date" required />
           <BaseInput v-model="form.tob" label="Giờ sinh" type="time" required />
 
-          <!-- Thời gian dùng SIM -->
+          <!-- Thông tin SIM -->
+          <BaseInput v-model="form.phone" label="Số điện thoại" placeholder="0912345678" required />
           <div class="flex flex-col gap-1.5">
             <label class="text-sm font-medium text-slate-300">Thời gian dùng SIM <span class="text-gold-400">*</span></label>
             <select
               v-model="form.usedLessThan6Months"
-              class="w-full bg-slate-900/60 border border-slate-700/60 hover:border-gold-500/30 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-gold-500/50 transition-all"
+              class="w-full bg-slate-900/60 border border-slate-700/60 hover:border-gold-500/30 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-gold-500/50 transition-all duration-200"
             >
-              <option value="" disabled>Chọn thời gian...</option>
-              <option value="true">Dưới 6 tháng</option>
-              <option value="false">Trên 6 tháng</option>
+              <option value="" disabled class="bg-slate-900 text-slate-400">Chọn thời gian...</option>
+              <option value="true" class="bg-slate-900 text-slate-100">Dưới 6 tháng</option>
+              <option value="false" class="bg-slate-900 text-slate-100">Trên 6 tháng</option>
             </select>
           </div>
-
           <!-- Vấn đề cải vận -->
           <div class="flex flex-col gap-1.5 sm:col-span-2">
             <label class="text-sm font-medium text-slate-300">Vấn đề cần cải vận nhất <span class="text-gold-400">*</span></label>
@@ -113,7 +117,7 @@ async function submit() {
                 type="button"
                 @click="form.focusArea = area"
                 :class="[
-                  'py-2 px-3 rounded-lg text-sm font-medium border transition-all duration-200',
+                  'py-2.5 px-3 rounded-lg text-sm font-medium border transition-all duration-200',
                   form.focusArea === area
                     ? 'bg-gold-500/20 border-gold-500 text-gold-300'
                     : 'bg-slate-900/40 border-slate-700/60 text-slate-400 hover:border-gold-500/30 hover:text-slate-300',

@@ -67,12 +67,12 @@ const ratingColor: Record<string, string> = {
   <div v-if="result && user" class="min-h-screen bg-slate-950 text-slate-100">
     <!-- Header -->
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
-      <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="text-2xl">🕉️</span>
-          <span class="font-bold tracking-wide gold-gradient-text uppercase text-lg">Phong Thủy SIM Cát Hùng</span>
+          <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">Phong Thủy SIM Cát Hùng</span>
         </div>
-        <BaseButton variant="ghost" size="sm" @click="router.push('/')">← Kiểm tra SIM khác</BaseButton>
+        <BaseButton variant="ghost" size="sm" class="!text-xs sm:!text-sm" @click="router.push('/')">← Kiểm tra SIM khác</BaseButton>
       </div>
     </header>
 
