@@ -8,9 +8,9 @@ export interface CheckFormData {
   email: string
   phone: string
   dob: string
-  tob: string
+  tob?: string | null
   usedLessThan6Months: boolean
-  focusArea: string
+  focusArea?: string | null
   referredByCode?: string
 }
 

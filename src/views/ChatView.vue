@@ -105,7 +105,7 @@ const messages = computed(() => chatStore.messages)
       <div v-if="!chatStore.isLoadingHistory && messages.length === 0"
            class="flex flex-col items-center justify-center h-full gap-3 text-slate-500 text-sm">
         <span class="text-4xl">💬</span>
-        <p>Chuyên gia sẽ tham gia phòng chat sớm thôi...</p>
+        <p>Dịch sư sẽ tham gia phòng chat sớm thôi...</p>
       </div>
 
       <template v-for="msg in messages" :key="msg.id">
