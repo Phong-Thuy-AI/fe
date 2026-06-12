@@ -181,6 +181,8 @@ function isSubscriberActive(expiry: string | null) {
 const aiProvider = ref('gemini')
 const geminiKey = ref('')
 const openaiKey = ref('')
+const claudeKey = ref('')
+const aiProxyUrl = ref('')
 const aiModel = ref('')
 const aiModels = ref<string[]>([])
 const loadingModels = ref(false)
@@ -206,6 +208,8 @@ async function fetchConfigs() {
     
     geminiKey.value = data.GEMINI_API_KEY || ''
     openaiKey.value = data.OPENAI_API_KEY || ''
+    claudeKey.value = data.CLAUDE_API_KEY || ''
+    aiProxyUrl.value = data.AI_PROXY_URL || ''
     
     smtpHost.value = data.SMTP_HOST || ''
     smtpPort.value = data.SMTP_PORT || '587'
@@ -213,7 +217,7 @@ async function fetchConfigs() {
     smtpPass.value = data.SMTP_PASS || ''
     emailFrom.value = data.EMAIL_FROM || ''
     
-    if (geminiKey.value || openaiKey.value) {
+    if (geminiKey.value || openaiKey.value || claudeKey.value) {
       await loadAiModels()
     }
   } catch (err) {
@@ -223,7 +227,9 @@ async function fetchConfigs() {
 
 async function loadAiModels() {
   loadingModels.value = true
-  const activeKey = aiProvider.value === 'openai' ? openaiKey.value : geminiKey.value
+  const activeKey = aiProvider.value === 'openai' 
+    ? openaiKey.value 
+    : (aiProvider.value === 'claude' ? claudeKey.value : geminiKey.value)
   try {
     const res = await api.get<{ data: string[] }>('/admin/ai/models', {
       params: {
@@ -245,7 +251,9 @@ async function loadAiModels() {
 
 async function testAi() {
   testingConnection.value = true
-  const activeKey = aiProvider.value === 'openai' ? openaiKey.value : geminiKey.value
+  const activeKey = aiProvider.value === 'openai' 
+    ? openaiKey.value 
+    : (aiProvider.value === 'claude' ? claudeKey.value : geminiKey.value)
   try {
     const res = await api.post<{ data: { answer: string } }>('/admin/ai/test-connection', {
       provider: aiProvider.value,
@@ -293,6 +301,8 @@ async function saveAllConfigs() {
         AI_MODEL: aiModel.value,
         GEMINI_API_KEY: geminiKey.value,
         OPENAI_API_KEY: openaiKey.value,
+        CLAUDE_API_KEY: claudeKey.value,
+        AI_PROXY_URL: aiProxyUrl.value,
         SMTP_HOST: smtpHost.value,
         SMTP_PORT: smtpPort.value,
         SMTP_USER: smtpUser.value,
@@ -798,6 +808,7 @@ onUnmounted(() => chatStore.disconnect())
               >
                 <option value="gemini">Gemini (Google)</option>
                 <option value="openai">OpenAI</option>
+                <option value="claude">Anthropic Claude</option>
               </select>
             </div>
             
@@ -811,6 +822,13 @@ onUnmounted(() => chatStore.disconnect())
                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50 font-mono"
               />
               <input
+                v-else-if="aiProvider === 'claude'"
+                v-model="claudeKey"
+                type="password"
+                placeholder="sk-ant-..."
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50 font-mono"
+              />
+              <input
                 v-else
                 v-model="geminiKey"
                 type="password"
@@ -818,6 +836,16 @@ onUnmounted(() => chatStore.disconnect())
                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50 font-mono"
               />
             </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Proxy URL (Tùy chọn - Ví dụ: https://api.openai-proxy.com)</label>
+            <input
+              v-model="aiProxyUrl"
+              type="text"
+              placeholder="Nhập địa chỉ proxy nếu cần..."
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+            />
           </div>
 
           <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-4 mt-2">

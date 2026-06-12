@@ -1,9 +1,9 @@
 <script setup lang="ts">
-defineProps<{ class?: string }>()
+// GlassCard uses Vue's automatic fallthrough attributes for classes and styles
 </script>
 
 <template>
-  <div :class="['glass-card rounded-2xl', $props.class]">
+  <div class="glass-card rounded-2xl">
     <slot />
   </div>
 </template>

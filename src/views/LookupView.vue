@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/services/api'
 import { ZALO_LINK } from '@/utils/constants'
-import { scoreLabel } from '@/utils/helpers'
+import { scoreLabel, getVậnTreeIcon, getVậnCardClass, getVậnGlowClass, getClassificationClass } from '@/utils/helpers'
 import type { LookupResponse, LookupOrderItem, FengshuiResult } from '@/types'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
@@ -15,7 +15,6 @@ const form = reactive({ email: '', phone: '' })
 const isLoading = ref(false)
 const formError = ref('')
 const result = ref<LookupResponse | null>(null)
-const showCheckResult = ref(false)
 
 const parsedCheckResult = (): FengshuiResult | null => {
   if (!result.value?.user.lastCheckResult) return null
@@ -23,8 +22,10 @@ const parsedCheckResult = (): FengshuiResult | null => {
 }
 
 function validate(): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!form.email || !emailRegex.test(form.email)) { formError.value = 'Email không đúng định dạng.'; return false }
+  if (form.email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(form.email)) { formError.value = 'Email không đúng định dạng.'; return false }
+  }
   if (form.phone.replace(/\D/g, '').length < 6) { formError.value = 'Số điện thoại phải chứa tối thiểu 6 chữ số.'; return false }
   return true
 }
@@ -32,7 +33,6 @@ function validate(): boolean {
 async function submit() {
   formError.value = ''
   result.value = null
-  showCheckResult.value = false
   if (!validate()) return
   isLoading.value = true
   try {
@@ -64,31 +64,168 @@ const ratingColor: Record<string, string> = {
   'Đạt': 'text-green-400', 'Đạt (Trội)': 'text-green-300',
   'Biến động lớn': 'text-yellow-400', 'Không đạt': 'text-red-400',
   'Cát': 'text-gold-400', 'Ổn nhưng điểm thấp': 'text-yellow-400',
-  'Khuyên đổi SIM': 'text-orange-400', 'Khuyên bỏ SIM': 'text-red-500'
+  'Khuyên đổi SIM': 'text-orange-400', 'Khuyên bỏ SIM': 'text-red-500',
+  'Không tốt': 'text-red-400'
 }
+
+const userObj = computed(() => result.value?.user)
+const resultObj = computed(() => parsedCheckResult())
+
+const totalLabelObj = computed(() => resultObj.value ? scoreLabel(resultObj.value.totalScore) : null)
+
+const parsedTien = computed(() => resultObj.value ? parseQueText(resultObj.value.hexagrams.cleaned.tien) : null)
+const parsedTrung = computed(() => resultObj.value ? parseQueText(resultObj.value.hexagrams.cleaned.trung) : null)
+const parsedHau = computed(() => resultObj.value ? parseQueText(resultObj.value.hexagrams.cleaned.hau) : null)
+
+const aiSectionsObj = computed(() => {
+  return parseAiAnalysis(resultObj.value?.aiAnalysis || '')
+})
+
+const isHungGroupObj = computed(() => {
+  if (!resultObj.value) return false
+  const totalScore = resultObj.value.totalScore
+  const nguHanhRating = resultObj.value.nguHanh.rating
+  const vanQueRating = resultObj.value.vanQue.rating
+  
+  return (
+    totalScore < 50 ||
+    nguHanhRating === 'Không đạt' ||
+    vanQueRating === 'Khuyên bỏ SIM' ||
+    vanQueRating === 'Khuyên đổi SIM' ||
+    vanQueRating === 'Không tốt'
+  )
+})
+
+const conclusionTextObj = computed(() => {
+  if (isHungGroupObj.value) {
+    return 'Tổng hợp các yếu tố trên, con số này chưa tối ưu để dùng làm số chủ đạo lâu dài, nhưng vẫn có thể sử dụng an toàn nếu đặt đúng vai trò và thời điểm. Để kết luận chính xác hơn, cần xét thêm cung mệnh và giai đoạn vận hiện tại.'
+  } else {
+    return 'Tổng hợp các yếu tố trên, con số này có thể sử dụng ổn định ở mức độ nhất định. Để biết mức độ phù hợp chính xác hơn với từng người, nên xét thêm cung mệnh và giai đoạn vận hiện tại.'
+  }
+})
+
+
+
+function parseQueText(text: string) {
+  if (!text) return null
+  
+  const classMatch = text.match(/\*\*Phân loại\*\*:\s*\*\*([^*]+)\*\*/i)
+  const classification = classMatch ? classMatch[1].trim() : ''
+  
+  const parts = text.split(/####\s+\d+\.\s+/)
+  
+  const hanNomRaw = parts[1] || ''
+  const dichNghiaRaw = parts[2] || ''
+  const loiKhuyenRaw = parts[3] || ''
+  
+  const parseList = (rawText: string) => {
+    return rawText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.startsWith('*'))
+      .map(line => {
+        const content = line.substring(1).trim()
+        return content.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-gold-300 font-semibold">$1</strong>')
+      })
+  }
+  
+  return {
+    classification,
+    hanNom: parseList(hanNomRaw),
+    dichNghia: parseList(dichNghiaRaw),
+    loiKhuyen: parseList(loiKhuyenRaw)
+  }
+}
+
+function parseAiAnalysis(text: string) {
+  const sections: Record<string, string> = {
+    phongThuy: '',
+    phongThuySo: '',
+    kinhDich: '',
+    thanSo: '',
+    chiemTinh: ''
+  }
+  if (!text) return sections
+
+  const lines = text.split('\n')
+  let currentKey = ''
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('#')) {
+      const cleanedLine = trimmed
+        .replace(/[\*\:#]/g, '')
+        .replace(/[0-9\.\-\(\)]/g, '')
+        .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+        .trim()
+        .toLowerCase();
+
+      if (cleanedLine === 'luận phong thủy') {
+        currentKey = 'phongThuy'
+      } else if (cleanedLine === 'luận phong thủy số') {
+        currentKey = 'phongThuySo'
+      } else if (cleanedLine === 'luận kinh dịch') {
+        currentKey = 'kinhDich'
+      } else if (cleanedLine === 'luận thần số học') {
+        currentKey = 'thanSo'
+      } else if (cleanedLine === 'luận chiêm tinh') {
+        currentKey = 'chiemTinh'
+      } else {
+        currentKey = ''
+      }
+    } else if (currentKey) {
+      sections[currentKey] += (sections[currentKey] ? '\n' : '') + line
+    }
+  }
+
+  for (const key in sections) {
+    sections[key] = sections[key].trim()
+  }
+
+  return sections
+}
+
+function formatMarkdownInline(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-gold-300 font-semibold">$1</strong>')
+    .replace(/^[-\*]\s+([^\n]+)/gm, '<span class="text-gold-500 mr-1.5">•</span> $1')
+}
+
+const formattedAiAnalysis = computed(() => {
+  if (!resultObj.value?.aiAnalysis) return ''
+  return resultObj.value.aiAnalysis.replace(
+    /###\s+([^\n]+)/g,
+    '<h4 class="text-sm sm:text-base font-bold text-gold-400 mt-5 mb-2 pb-1 border-b border-slate-800 flex items-center gap-2"><span>🔮</span> $1</h4>'
+  )
+})
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100">
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
-      <div class="max-w-lg mx-auto px-4 h-16 flex items-center justify-between">
+      <div :class="['mx-auto px-4 h-16 flex items-center justify-between transition-all duration-300', result ? 'max-w-4xl' : 'max-w-lg']">
         <div class="flex items-center gap-2">
           <span class="text-2xl">🕉️</span>
-          <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">Phong Thủy SIM Cát Hùng</span>
+          <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">DI NHÂN PHONG THỦY SỐ</span>
         </div>
-        <router-link to="/" class="text-xs sm:text-sm text-slate-400 hover:text-gold-300 transition">← Trang chủ</router-link>
+        <button v-if="result" class="text-xs sm:text-sm text-slate-400 hover:text-gold-300 transition" @click="result = null; form.email = ''; form.phone = ''">
+          ← Tra cứu số khác
+        </button>
+        <router-link v-else to="/" class="text-xs sm:text-sm text-slate-400 hover:text-gold-300 transition">← Trang chủ</router-link>
       </div>
     </header>
 
-    <main class="max-w-lg mx-auto px-4 py-10 space-y-6">
-      <div class="text-center space-y-2">
+    <main :class="['mx-auto px-4 py-10 space-y-8 transition-all duration-300', result ? 'max-w-4xl' : 'max-w-lg']">
+      <!-- Title when no result -->
+      <div v-if="!result" class="text-center space-y-2">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold-500/10 text-4xl mb-2">🔍</div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight"><span class="gold-gradient-text">Tra Cứu Đơn Hàng</span></h1>
-        <p class="text-slate-400 text-sm max-w-sm mx-auto">Nhập Email và Số điện thoại đã đăng ký để xem lại đơn hàng và quay lại phòng tư vấn.</p>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight"><span class="gold-gradient-text">Tra Cứu Lịch Sử</span></h1>
+        <p class="text-slate-400 text-sm max-w-sm mx-auto">Nhập Số điện thoại đã đăng ký để xem lại lịch sử và quay lại phòng tư vấn.</p>
       </div>
 
       <!-- Form -->
-      <GlassCard class="p-6 space-y-4 relative overflow-hidden">
+      <GlassCard v-if="!result" class="p-6 space-y-4 relative overflow-hidden">
         <div v-if="isLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 rounded-2xl gap-3">
           <div class="relative w-12 h-12">
             <div class="absolute inset-0 rounded-full border-4 border-gold-500/20"></div>
@@ -96,32 +233,29 @@ const ratingColor: Record<string, string> = {
           </div>
           <p class="text-gold-300 text-sm font-medium animate-pulse">Đang tra cứu...</p>
         </div>
-        <BaseInput v-model="form.email" label="Email đã đăng ký" type="email" placeholder="email@example.com" required @keyup.enter="submit" />
+        <div class="flex flex-col gap-1">
+          <BaseInput v-model="form.email" label="Email đã đăng ký (không bắt buộc)" type="email" placeholder="email@example.com" @keyup.enter="submit" />
+          <span class="text-[11px] text-slate-500 italic leading-normal px-0.5">
+            * Gmail chỉ có tác dụng khi bạn cần mua gói tử vi hằng ngày hoặc gói sẽ tự động tặng khi có giao dịch trên trang
+          </span>
+        </div>
         <BaseInput v-model="form.phone" label="Số điện thoại đã đăng ký" placeholder="0912345678" required @keyup.enter="submit" />
         <p v-if="formError" class="text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-2">{{ formError }}</p>
-        <BaseButton size="lg" full-width :loading="isLoading" @click="submit">🔍 Tra Cứu Đơn Hàng</BaseButton>
+        <BaseButton size="lg" full-width :loading="isLoading" @click="submit">🔍 Tra Cứu Lịch Sử</BaseButton>
       </GlassCard>
 
       <!-- Kết quả -->
       <template v-if="result">
-        <!-- Card chào mừng + referral code -->
-        <GlassCard class="p-5 space-y-3 border border-gold-500/20">
-          <div class="text-center space-y-1">
-            <p class="text-slate-400 text-sm">Xin chào</p>
-            <h2 class="text-2xl font-extrabold gold-gradient-text">{{ result.user.name }}</h2>
-            <div class="flex items-center justify-center gap-2 text-sm flex-wrap">
-              <span class="text-slate-400">Mệnh</span>
-              <span class="font-semibold text-gold-400">{{ result.user.menh }}</span>
-              <template v-if="result.user.focusArea">
-                <span class="text-slate-600">·</span>
-                <span class="text-slate-400">Cải vận</span>
-                <span class="font-medium text-slate-300">{{ result.user.focusArea }}</span>
-              </template>
-            </div>
-          </div>
-          <!-- Referral code: chỉ hiện nếu đã mua gói (có đơn hàng paid/completed) -->
-          <div v-if="result.user.referralCode && result.orders.length > 0" class="flex items-center justify-between bg-slate-900/60 rounded-xl px-4 py-2.5">
-            <div>
+        <!-- Tiêu đề kết quả (giống trang Result) -->
+        <div class="text-center space-y-1">
+          <p class="text-slate-400 text-sm">Kết quả lịch sử cho <strong class="text-slate-200">{{ result.user.name }}</strong> · Mệnh <strong class="text-gold-400">{{ result.user.menh }}</strong></p>
+          <h2 class="text-2xl sm:text-3xl font-extrabold gold-gradient-text">Báo Cáo Phong Thủy SIM</h2>
+        </div>
+
+        <!-- Referral code: chỉ hiện nếu đã mua gói (có đơn hàng paid/completed) -->
+        <GlassCard v-if="result.user.referralCode && result.orders.length > 0" class="p-4 border border-gold-500/20 max-w-md mx-auto">
+          <div class="flex items-center justify-between bg-slate-900/60 rounded-xl px-4 py-2.5">
+            <div class="text-left">
               <p class="text-xs text-slate-500">Mã giới thiệu của bạn</p>
               <p class="font-mono text-base font-bold text-gold-400">{{ result.user.referralCode }}</p>
             </div>
@@ -129,42 +263,320 @@ const ratingColor: Record<string, string> = {
           </div>
         </GlassCard>
 
-        <!-- Kết quả luận giải SIM (expandable) -->
-        <GlassCard v-if="parsedCheckResult()" class="overflow-hidden">
-          <button
-            class="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-800/30 transition-all"
-            @click="showCheckResult = !showCheckResult"
-          >
-            <span class="font-semibold text-slate-200 text-sm">📊 Kết quả luận giải SIM của bạn</span>
-            <span class="text-slate-500 text-sm">{{ showCheckResult ? '▲ Thu gọn' : '▼ Xem chi tiết' }}</span>
-          </button>
-          <div v-if="showCheckResult" class="px-5 pb-5 space-y-4">
-            <template v-if="parsedCheckResult() as any">
-              <div v-if="parsedCheckResult() as any" class="grid grid-cols-2 gap-3">
-                <div class="bg-slate-900/60 rounded-xl p-3 text-center">
-                  <p class="text-xs text-slate-500 mb-1">Ngũ Hành</p>
-                  <p class="text-2xl font-black text-gold-400">{{ (parsedCheckResult() as any).nguHanh?.score }}<span class="text-xs text-slate-500">/50</span></p>
-                  <p class="text-xs font-medium mt-0.5" :class="ratingColor[(parsedCheckResult() as any).nguHanh?.rating] ?? 'text-slate-300'">{{ (parsedCheckResult() as any).nguHanh?.rating }}</p>
+        <!-- Báo Cáo Phong Thủy SIM (Unfolded, exactly styled like Result page) -->
+        <template v-if="resultObj">
+          <!-- Tổng điểm tương hợp -->
+          <GlassCard class="p-6 text-center relative overflow-hidden">
+            <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-36 h-36 bg-gold-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="space-y-1 relative z-10">
+              <p class="text-slate-400 text-sm">Số điện thoại: <strong class="text-slate-200">{{ userObj?.phone }}</strong></p>
+            </div>
+            
+            <div class="mt-4 flex flex-col items-center justify-center relative z-10">
+              <div class="w-32 h-32 rounded-full border-4 border-slate-800/80 flex flex-col items-center justify-center bg-slate-900/80 shadow-inner relative">
+                <div class="absolute inset-0 rounded-full border border-gold-500/20 animate-pulse"></div>
+                <span class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Tương hợp</span>
+                <span class="text-5xl font-black text-gold-400 leading-none my-1" :class="totalLabelObj?.color">{{ resultObj.totalScore }}</span>
+                <span class="text-slate-500 text-[10px] font-semibold">/100</span>
+              </div>
+              <div class="text-lg font-bold mt-3" :class="totalLabelObj?.color">
+                Đánh giá: {{ totalLabelObj?.text }}
+              </div>
+            </div>
+            
+            <div class="mt-5 w-full max-w-md mx-auto bg-slate-800 rounded-full h-2 relative z-10">
+              <div class="h-2 rounded-full bg-gradient-to-r from-gold-600 to-gold-400 transition-all duration-700 shadow-md shadow-gold-500/30"
+                   :style="{ width: `${resultObj.totalScore}%` }" />
+            </div>
+          </GlassCard>
+
+          <!-- 1️⃣ VẬN MỆNH (theo từng giai đoạn) -->
+          <div class="space-y-4">
+            <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>1️⃣</span> VẬN MỆNH ( theo từng giai đoạn )</h3>
+            
+            <div class="space-y-4">
+              <!-- Tiền Vận Card -->
+              <GlassCard :class="['p-6 relative overflow-hidden transition-all duration-300', getVậnCardClass(parsedTien?.classification || '')]">
+                <div :class="['absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none transition-all duration-500', getVậnGlowClass(parsedTien?.classification || '')]"></div>
+                <div class="flex items-center justify-between border-b border-slate-800/60 pb-3 mb-4">
+                  <h4 class="text-sm sm:text-base font-bold text-gold-400 flex items-center gap-2">
+                    <span>{{ getVậnTreeIcon(parsedTien?.classification || '') }}</span> Tiền Vận <span class="text-xs text-slate-500 font-normal"></span>
+                  </h4>
+                  <span v-if="parsedTien?.classification" :class="['px-3 py-1 rounded-full text-xs font-black border uppercase tracking-wider', getClassificationClass(parsedTien.classification)]">
+                    {{ parsedTien.classification }}
+                  </span>
                 </div>
-                <div class="bg-slate-900/60 rounded-xl p-3 text-center">
-                  <p class="text-xs text-slate-500 mb-1">Vận Quẻ</p>
-                  <p class="text-2xl font-black text-gold-400">{{ (parsedCheckResult() as any).vanQue?.score }}<span class="text-xs text-slate-500">/50</span></p>
-                  <p class="text-xs font-medium mt-0.5" :class="ratingColor[(parsedCheckResult() as any).vanQue?.rating] ?? 'text-slate-300'">{{ (parsedCheckResult() as any).vanQue?.rating }}</p>
+                
+                <div v-if="parsedTien" class="space-y-4 text-xs sm:text-sm text-slate-300">
+                  <div v-if="parsedTien.hanNom && parsedTien.hanNom.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">📜 Giải nghĩa từ Hán-Nôm & Ẩn ngữ</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedTien.hanNom" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-if="parsedTien.dichNghia && parsedTien.dichNghia.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">📖 Dịch nghĩa thuần Việt & Bình luận</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedTien.dichNghia" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-if="parsedTien.loiKhuyen && parsedTien.loiKhuyen.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">💡 Lời khuyên Phong thủy & Cải vận</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedTien.loiKhuyen" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
-              </div>
-              <div class="bg-slate-900/60 rounded-xl p-3 text-center">
-                <p class="text-xs text-slate-500 mb-1">Tổng điểm</p>
-                <p class="text-3xl font-black" :class="scoreLabel((parsedCheckResult() as any).totalScore).color">{{ (parsedCheckResult() as any).totalScore }}<span class="text-sm font-normal text-slate-500">/100</span></p>
-                <p class="text-xs font-medium mt-0.5" :class="scoreLabel((parsedCheckResult() as any).totalScore).color">{{ scoreLabel((parsedCheckResult() as any).totalScore).text }}</p>
-              </div>
-              <!-- AI analysis nếu có -->
-              <div v-if="(parsedCheckResult() as any).aiAnalysis" class="bg-slate-900/60 rounded-xl p-3">
-                <p class="text-xs text-gold-400 font-medium mb-1">🤖 Phân tích AI</p>
-                <p class="text-xs text-slate-400 leading-relaxed whitespace-pre-line">{{ (parsedCheckResult() as any).aiAnalysis }}</p>
-              </div>
-            </template>
+                <div v-else class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                  {{ resultObj.hexagrams.cleaned.tien }}
+                </div>
+              </GlassCard>
+
+              <!-- Trung Vận Card -->
+              <GlassCard :class="['p-6 relative overflow-hidden transition-all duration-300', getVậnCardClass(parsedTrung?.classification || '')]">
+                <div :class="['absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none transition-all duration-500', getVậnGlowClass(parsedTrung?.classification || '')]"></div>
+                <div class="flex items-center justify-between border-b border-slate-800/60 pb-3 mb-4">
+                  <h4 class="text-sm sm:text-base font-bold text-gold-400 flex items-center gap-2">
+                    <span>{{ getVậnTreeIcon(parsedTrung?.classification || '') }}</span> Trung Vận <span class="text-xs text-slate-500 font-normal"></span>
+                  </h4>
+                  <span v-if="parsedTrung?.classification" :class="['px-3 py-1 rounded-full text-xs font-black border uppercase tracking-wider', getClassificationClass(parsedTrung.classification)]">
+                    {{ parsedTrung.classification }}
+                  </span>
+                </div>
+                
+                <div v-if="parsedTrung" class="space-y-4 text-xs sm:text-sm text-slate-300">
+                  <div v-if="parsedTrung.hanNom && parsedTrung.hanNom.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">📜 Giải nghĩa từ Hán-Nôm & Ẩn ngữ</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedTrung.hanNom" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-if="parsedTrung.dichNghia && parsedTrung.dichNghia.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">📖 Dịch nghĩa thuần Việt & Bình luận</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedTrung.dichNghia" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-if="parsedTrung.loiKhuyen && parsedTrung.loiKhuyen.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">💡 Lời khuyên Phong thủy & Cải vận</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedTrung.loiKhuyen" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <div v-else class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                  {{ resultObj.hexagrams.cleaned.trung }}
+                </div>
+              </GlassCard>
+
+              <!-- Hậu Vận Card -->
+              <GlassCard :class="['p-6 relative overflow-hidden transition-all duration-300', getVậnCardClass(parsedHau?.classification || '')]">
+                <div :class="['absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none transition-all duration-500', getVậnGlowClass(parsedHau?.classification || '')]"></div>
+                <div class="flex items-center justify-between border-b border-slate-800/60 pb-3 mb-4">
+                  <h4 class="text-sm sm:text-base font-bold text-gold-400 flex items-center gap-2">
+                    <span>{{ getVậnTreeIcon(parsedHau?.classification || '') }}</span> Hậu Vận <span class="text-xs text-slate-500 font-normal"></span>
+                  </h4>
+                  <span v-if="parsedHau?.classification" :class="['px-3 py-1 rounded-full text-xs font-black border uppercase tracking-wider', getClassificationClass(parsedHau.classification)]">
+                    {{ parsedHau.classification }}
+                  </span>
+                </div>
+                
+                <div v-if="parsedHau" class="space-y-4 text-xs sm:text-sm text-slate-300">
+                  <div v-if="parsedHau.hanNom && parsedHau.hanNom.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">📜 Giải nghĩa từ Hán-Nôm & Ẩn ngữ</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedHau.hanNom" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-if="parsedHau.dichNghia && parsedHau.dichNghia.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">📖 Dịch nghĩa thuần Việt & Bình luận</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedHau.dichNghia" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-if="parsedHau.loiKhuyen && parsedHau.loiKhuyen.length" class="space-y-1.5">
+                    <h5 class="font-semibold text-gold-400 flex items-center gap-1.5">💡 Lời khuyên Phong thủy & Cải vận</h5>
+                    <ul class="space-y-1 pl-4 list-none">
+                      <li v-for="(line, idx) in parsedHau.loiKhuyen" :key="idx" class="relative pl-4 leading-relaxed">
+                        <span class="absolute left-0 top-1.5 text-[8px] text-gold-500">✦</span>
+                        <span v-html="line"></span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <div v-else class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                  {{ resultObj.hexagrams.cleaned.hau }}
+                </div>
+              </GlassCard>
+            </div>
           </div>
-        </GlassCard>
+
+          <!-- 2️⃣ Luận Phong thủy & 3️⃣ Luận Phong thủy số (Layout 2 cột) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-6">
+            <!-- 2️⃣ Luận Phong thủy (Ngũ Hành) -->
+            <div class="space-y-3">
+              <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>2️⃣</span> Luận Phong thủy (Ngũ Hành)</h3>
+              <GlassCard class="p-5 h-full flex flex-col justify-between bg-slate-900/30">
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h4 class="font-bold text-slate-200 flex items-center gap-1.5">
+                      <span>⚡</span> Ngũ Hành SIM
+                    </h4>
+                    <span class="text-lg font-black text-gold-400">
+                      {{ resultObj.nguHanh.score }}<span class="text-xs font-normal text-slate-500">/50</span>
+                    </span>
+                  </div>
+                  
+                  <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/80">
+                    <span class="text-xs text-slate-400">Đánh giá chung:</span>
+                    <span class="text-xs font-bold uppercase" :class="ratingColor[resultObj.nguHanh.rating] ?? 'text-slate-300'">
+                      {{ resultObj.nguHanh.rating }}
+                    </span>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
+                      <div class="text-lg font-black text-green-400 leading-tight">{{ resultObj.nguHanh.c_sinh }}</div>
+                      <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Tương sinh</div>
+                    </div>
+                    <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
+                      <div class="text-lg font-black text-gold-400 leading-tight">{{ resultObj.nguHanh.c_hop }}</div>
+                      <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Tương hợp</div>
+                    </div>
+                    <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
+                      <div class="text-lg font-black text-red-400 leading-tight">{{ resultObj.nguHanh.c_khac }}</div>
+                      <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Tương khắc</div>
+                    </div>
+                  </div>
+                  
+                  <p class="text-xs text-slate-400 leading-relaxed">{{ resultObj.nguHanh.details }}</p>
+                </div>
+
+                <!-- AI Deep Dive Section (Luận Phong thủy) -->
+                <div v-if="aiSectionsObj.phongThuy" class="mt-4 pt-4 border-t border-slate-800">
+                  <h5 class="text-xs font-bold text-gold-400 flex items-center gap-1 mb-1.5">
+                    <span>🔮</span> Chiêm nghiệm chuyên sâu:
+                  </h5>
+                  <div class="text-xs text-slate-300 leading-relaxed" v-html="formatMarkdownInline(aiSectionsObj.phongThuy)"></div>
+                </div>
+              </GlassCard>
+            </div>
+
+            <!-- 3️⃣ Luận Phong thủy số (Vận Quẻ) -->
+            <div class="space-y-3">
+              <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>3️⃣</span> Luận Phong thủy số (Vận Quẻ)</h3>
+              <GlassCard class="p-5 h-full flex flex-col justify-between bg-slate-900/30">
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h4 class="font-bold text-slate-200 flex items-center gap-1.5">
+                      <span>🎋</span> Vận Quẻ SIM
+                    </h4>
+                    <span class="text-lg font-black text-gold-400">
+                      {{ resultObj.vanQue.score }}<span class="text-xs font-normal text-slate-500">/50</span>
+                    </span>
+                  </div>
+
+                  <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/80">
+                    <span class="text-xs text-slate-400">Đánh giá chung:</span>
+                    <span class="text-xs font-bold uppercase" :class="ratingColor[resultObj.vanQue.rating] ?? 'text-slate-300'">
+                      {{ resultObj.vanQue.rating }}
+                    </span>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
+                      <div class="text-xs font-bold text-slate-300 leading-tight truncate">{{ resultObj.vanQue.tienVanQue }}</div>
+                      <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Tiền vận</div>
+                    </div>
+                    <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
+                      <div class="text-xs font-bold text-slate-300 leading-tight truncate">{{ resultObj.vanQue.trungVanQue }}</div>
+                      <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Trung vận</div>
+                    </div>
+                    <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
+                      <div class="text-xs font-bold text-slate-300 leading-tight truncate">{{ resultObj.vanQue.hauVanQue }}</div>
+                      <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Hậu vận</div>
+                    </div>
+                  </div>
+
+                  <p class="text-xs text-slate-400 leading-relaxed">{{ resultObj.vanQue.details }}</p>
+                </div>
+
+                <!-- AI Deep Dive Section (Luận Phong thủy số) -->
+                <div v-if="aiSectionsObj.phongThuySo" class="mt-4 pt-4 border-t border-slate-800">
+                  <h5 class="text-xs font-bold text-gold-400 flex items-center gap-1 mb-1.5">
+                    <span>🔮</span> Chiêm nghiệm chuyên sâu:
+                  </h5>
+                  <div class="text-xs text-slate-300 leading-relaxed" v-html="formatMarkdownInline(aiSectionsObj.phongThuySo)"></div>
+                </div>
+              </GlassCard>
+            </div>
+          </div>
+
+          <!-- 4️⃣ Luận Kinh Dịch -->
+          <div class="space-y-3 mt-16">
+            <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>4️⃣</span> Luận Kinh Dịch</h3>
+            <GlassCard class="p-5 bg-slate-900/30">
+              <div v-if="aiSectionsObj.kinhDich" class="text-xs sm:text-sm text-slate-300 leading-relaxed" v-html="formatMarkdownInline(aiSectionsObj.kinhDich)"></div>
+              <div v-else-if="resultObj.aiAnalysis" class="text-xs sm:text-sm text-slate-300 leading-relaxed" v-html="formattedAiAnalysis"></div>
+              <div v-else class="text-xs sm:text-sm text-slate-500 italic">Đang cập nhật nội dung Kinh Dịch chi tiết...</div>
+            </GlassCard>
+          </div>
+
+          <!-- 5️⃣ Luận Thần số học -->
+          <div class="space-y-3">
+            <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>5️⃣</span> Luận Thần số học</h3>
+            <GlassCard class="p-5 bg-slate-900/30">
+              <div v-if="aiSectionsObj.thanSo" class="text-xs sm:text-sm text-slate-300 leading-relaxed" v-html="formatMarkdownInline(aiSectionsObj.thanSo)"></div>
+              <div v-else-if="resultObj.aiAnalysis && !aiSectionsObj.kinhDich" class="text-xs sm:text-sm text-slate-500 italic">Đã hiển thị ở phần trên</div>
+              <div v-else class="text-xs sm:text-sm text-slate-500 italic">Đang cập nhật nội dung Thần số học chi tiết...</div>
+            </GlassCard>
+          </div>
+
+          <!-- 6️⃣ Luận Chiêm tinh -->
+          <div class="space-y-3">
+            <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>6️⃣</span> Luận Chiêm tinh</h3>
+            <GlassCard class="p-5 bg-slate-900/30">
+              <div v-if="aiSectionsObj.chiemTinh" class="text-xs sm:text-sm text-slate-300 leading-relaxed" v-html="formatMarkdownInline(aiSectionsObj.chiemTinh)"></div>
+              <div v-else-if="resultObj.aiAnalysis && !aiSectionsObj.kinhDich" class="text-xs sm:text-sm text-slate-500 italic">Đã hiển thị ở phần trên</div>
+              <div v-else class="text-xs sm:text-sm text-slate-500 italic">Đang cập nhật nội dung Chiêm tinh chi tiết...</div>
+            </GlassCard>
+          </div>
+
+          <!-- 7️⃣ Kết luận & Cải vận -->
+          <div class="space-y-3">
+            <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>7️⃣</span> Kết luận & Cải vận</h3>
+            <GlassCard class="p-6 text-center space-y-4 relative overflow-hidden border-gold-500/20 bg-slate-900/30 shadow-lg">
+              <div class="absolute -bottom-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl pointer-events-none"></div>
+              <div class="text-slate-300 leading-relaxed text-xs sm:text-sm p-4 bg-slate-950/60 rounded-xl border border-slate-800/60 relative z-10 shadow-inner">
+                {{ conclusionTextObj }}
+              </div>
+            </GlassCard>
+          </div>
+        </template>
 
         <!-- Đơn hàng -->
         <GlassCard v-if="result.orders.length === 0" class="p-6 text-center space-y-3">
@@ -221,6 +633,6 @@ const ratingColor: Record<string, string> = {
       </template>
     </main>
 
-    <footer class="text-center py-6 text-xs text-slate-600">© 2026 Phong Thủy SIM Cát Hùng</footer>
+    <footer class="text-center py-6 text-xs text-slate-600">© 2026 DI NHÂN PHONG THỦY SỐ</footer>
   </div>
 </template>
