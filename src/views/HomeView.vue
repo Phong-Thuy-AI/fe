@@ -26,44 +26,57 @@ async function submit() {
     formError.value = 'Vui lòng điền đầy đủ các trường bắt buộc.'
     return
   }
-  try {
-    await store.checkSim({
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      dob: form.dob,
-      tob: form.tob || null,
-      usedLessThan6Months: form.usedLessThan6Months === 'true',
-      referredByCode: form.referredByCode || undefined,
-    })
-    router.push('/result')
-  } catch {
-    formError.value = store.error ?? 'Có lỗi xảy ra, vui lòng thử lại.'
-  }
+  store.isLoading = true;
+  // try {
+  //   await store.checkSim({
+  //     name: form.name,
+  //     email: form.email,
+  //     phone: form.phone,
+  //     dob: form.dob,
+  //     tob: form.tob || null,
+  //     usedLessThan6Months: form.usedLessThan6Months === 'true',
+  //     referredByCode: form.referredByCode || undefined,
+  //   })
+  //   router.push('/result')
+  // } catch {
+  //   formError.value = store.error ?? 'Có lỗi xảy ra, vui lòng thử lại.'
+  // }
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="min-h-screen celestial-bg text-slate-100">
+    <!-- Background Ambient Glows -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      <div class="cosmic-glow-1 animate-float-glow-1"></div>
+      <div class="cosmic-glow-2 animate-float-glow-2"></div>
+      <div class="cosmic-glow-3 animate-float-glow-3"></div>
+    </div>
+
     <!-- Header -->
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
       <div class="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🕉️</span>
+        <router-link to="/" class="flex items-center gap-2 hover:opacity-85 transition-opacity">
+          <div class="halo-effect">
+            <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-8 h-8 rounded-full object-cover relative z-10" />
+          </div>
           <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">DI NHÂN PHONG THỦY SỐ</span>
-        </div>
+        </router-link>
         <router-link to="/lookup" class="text-xs sm:text-sm font-semibold text-gold-400 hover:text-gold-300 transition-all flex items-center gap-1 bg-slate-800/40 hover:bg-slate-800/80 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-700/50 hover:border-gold-500/30">
           <span>🔍</span> Tra cứu lịch sử
         </router-link>
       </div>
     </header>
 
-    <main class="max-w-2xl mx-auto px-4 py-10">
+    <main class="max-w-2xl mx-auto px-4 py-10 relative z-10">
       <!-- Hero -->
-      <div class="text-center mb-10">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold-500/10 text-4xl mb-4">✨</div>
+      <div class="text-center mb-10 relative z-10">
+        <div class="inline-flex items-center justify-center w-30 h-30 rounded-full text-4xl mb-4 halo-effect">
+          <img src="/image.png" alt="Logo" class="w-30 h-30 rounded-full object-cover relative z-10" />
+        </div>
         <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
-          <span class="gold-gradient-text">DI NHÂN PHONG THỦY SỐ</span> ( Nhìn số biết vận - nhìn vận biết mệnh - nhìn mệnh biết cuộc đời )
+          <span class="gold-gradient-text">DI NHÂN PHONG THỦY SỐ</span>
+          <span class="block text-xs sm:text-sm text-slate-400 font-normal mt-2">( Nhìn số biết vận - nhìn vận biết mệnh - nhìn mệnh biết cuộc đời )</span>
         </h1>
         <p class="text-slate-400 text-base max-w-md mx-auto">
           Nhập thông tin bên dưới để hệ thống chấm điểm ngũ hành & vận quẻ cho số điện thoại của bạn.
@@ -71,15 +84,26 @@ async function submit() {
       </div>
 
       <!-- Form -->
-      <GlassCard class="p-6 sm:p-8 space-y-5">
+      <GlassCard class="p-6 sm:p-8 space-y-5 animate-gold-glow-pulse border border-gold-500/20 relative">
         <!-- Loading overlay -->
-        <div v-if="store.isLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 rounded-2xl gap-4">
-          <div class="relative w-16 h-16">
-            <div class="absolute inset-0 rounded-full border-4 border-gold-500/20"></div>
-            <div class="absolute inset-0 rounded-full border-4 border-t-gold-400 animate-spin"></div>
-            <span class="absolute inset-0 flex items-center justify-center text-2xl">🔮</span>
+        <div v-if="store.isLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/90 rounded-2xl gap-4 p-6">
+          <div class="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border border-gold-500/30 shadow-[0_0_20px_rgba(219,186,100,0.2)]">
+            <video 
+              autoplay 
+              loop 
+              muted 
+              playsinline
+              class="w-full h-full object-cover"
+            >
+              <source src="/video-loading.mp4" type="video/mp4" />
+            </video>
           </div>
-          <p class="text-gold-300 font-medium animate-pulse">Đang luận giải phong thủy...</p>
+          <p class="text-gold-300 font-bold tracking-wide animate-pulse text-sm sm:text-base text-center">
+            🔮 Đang kết nối dịch lý Bát Tự & Luận giải phong thủy SIM...
+          </p>
+          <p class="text-xs text-slate-500 text-center max-w-xs leading-relaxed">
+            Tiến trình luận giải chuyên sâu có thể mất khoảng 20 - 40 giây. Vui lòng không đóng trình duyệt.
+          </p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -87,7 +111,7 @@ async function submit() {
           <BaseInput v-model="form.name" label="Họ và tên" placeholder="Nguyễn Văn An" required />
           <div class="flex flex-col gap-1">
             <BaseInput v-model="form.email" label="Email (không bắt buộc)" type="email" placeholder="email@example.com" />
-            <span class="text-[11px] text-slate-400 italic leading-normal px-0.5">
+            <span class="text-[11px] text-gold-400/70 italic leading-normal px-0.5">
               * Gmail chỉ có tác dụng khi bạn cần mua gói tử vi hằng ngày hoặc gói sẽ tự động tặng khi có giao dịch trên trang
             </span>
           </div>
@@ -119,10 +143,37 @@ async function submit() {
         <!-- Error -->
         <p v-if="formError" class="text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-2">{{ formError }}</p>
 
-        <BaseButton type="submit" size="lg" full-width :loading="store.isLoading" @click="submit">
+        <BaseButton type="submit" size="lg" full-width :loading="store.isLoading" class="!shadow-[0_0_15px_rgba(219,186,100,0.15)] hover:!shadow-[0_0_25px_rgba(219,186,100,0.4)] transition-all duration-300" @click="submit">
           🔮 Luận Giải Phong Thủy SIM
         </BaseButton>
       </GlassCard>
+
+      <!-- Trust Pillars for older/middle-aged users -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10 text-center max-w-xl mx-auto relative z-10 border-t border-slate-800/40 mt-10">
+        <div class="space-y-2">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gold-500/10 text-gold-400 text-xl shadow-inner shadow-gold-500/5">📖</div>
+          <h4 class="text-sm font-extrabold text-gold-400 tracking-wide">Cổ Thư Kinh Dịch</h4>
+          <p class="text-[11px] text-slate-400 leading-relaxed max-w-[170px] mx-auto">
+            Luận giải chi tiết dựa trên 64 quẻ dịch cổ thư, giữ trọn ý nghĩa chân truyền cổ học phương Đông.
+          </p>
+        </div>
+        
+        <div class="space-y-2">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gold-500/10 text-gold-400 text-xl shadow-inner shadow-gold-500/5">☯️</div>
+          <h4 class="text-sm font-extrabold text-gold-400 tracking-wide">Ngũ Hành Tương Sinh</h4>
+          <p class="text-[11px] text-slate-400 leading-relaxed max-w-[170px] mx-auto">
+            Tính toán độ hợp khắc giữa SIM và Bát Tự theo Thiên Can - Địa Chi của Giờ/Ngày/Tháng/Năm sinh.
+          </p>
+        </div>
+        
+        <div class="space-y-2">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gold-500/10 text-gold-400 text-xl shadow-inner shadow-gold-500/5">🧙</div>
+          <h4 class="text-sm font-extrabold text-gold-400 tracking-wide">Dịch Sư Đồng Hành</h4>
+          <p class="text-[11px] text-slate-400 leading-relaxed max-w-[170px] mx-auto">
+            Không chỉ tính điểm tự động, Dịch sư sẽ trực tiếp trao đổi 1-1 để hỗ trợ cải vận chọn SIM đại cát.
+          </p>
+        </div>
+      </div>
     </main>
 
     <footer class="text-center py-6 text-xs text-slate-600 space-y-2">

@@ -17,7 +17,15 @@ const showStep2 = ref(false)
 const showCheckout = ref(false)
 const checkoutError = ref('')
 const selectedCarrier = ref('')
-const selectedTopic = ref('')
+const selectedTopics = ref<string[]>([])
+function toggleTopic(area: string) {
+  const idx = selectedTopics.value.indexOf(area)
+  if (idx > -1) {
+    selectedTopics.value.splice(idx, 1)
+  } else {
+    selectedTopics.value.push(area)
+  }
+}
 const selectedPackage = ref<'200k' | '500k' | null>(null)
 
 const data = computed(() => fengshuiStore.checkResponse)
@@ -27,6 +35,36 @@ const user = computed(() => data.value?.user)
 onMounted(() => { if (!data.value) router.replace('/') })
 
 const totalLabel = computed(() => result.value ? scoreLabel(result.value.totalScore) : null)
+
+const hasĐạiHungOrHung = computed(() => {
+  if (!result.value) return false
+  const list = [
+    parsedTien.value?.classification,
+    parsedTrung.value?.classification,
+    parsedHau.value?.classification
+  ]
+  return list.some(c => {
+    if (!c) return false
+    const u = c.toUpperCase()
+    return u.includes('ĐẠI HUNG') || u === 'HUNG'
+  })
+})
+
+const scoreCircleClass = computed(() => {
+  if (!result.value) return 'border-slate-800/80 shadow-inner'
+  const score = result.value.totalScore
+  if (score >= 60) return 'border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+  if (score >= 40) return 'border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+  return 'border-red-500/40 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse-danger'
+})
+
+const scoreInnerPulseClass = computed(() => {
+  if (!result.value) return 'border-gold-500/20 animate-pulse'
+  const score = result.value.totalScore
+  if (score >= 60) return 'border-emerald-500/20 animate-pulse'
+  if (score >= 40) return 'border-amber-500/20 animate-pulse'
+  return 'border-red-500/50 animate-ping'
+})
 
 const CARRIERS = ['Viettel', 'Mobifone', 'Vinaphone', 'Gmobile', 'Reddi', 'Không yêu cầu']
 const TOPICS = ['Gia đạo', 'Tình duyên', 'Công việc', 'Công danh', 'Sự nghiệp']
@@ -48,26 +86,49 @@ const isHungGroup = computed(() => {
 
 const conclusionText = computed(() => {
   if (isHungGroup.value) {
-    return 'Tổng hợp các yếu tố trên, con số này chưa tối ưu để dùng làm số chủ đạo lâu dài, nhưng vẫn có thể sử dụng an toàn nếu đặt đúng vai trò và thời điểm. Để kết luận chính xác hơn, cần xét thêm cung mệnh và giai đoạn vận hiện tại.'
+    return `<div class="space-y-3 text-left">
+      <p class="leading-relaxed">
+        ⚠️ <strong class="text-red-400 font-extrabold uppercase">Đánh giá chung:</strong> Số điện thoại này <strong class="text-red-400 font-black underline">chứa nhiều điềm hung, khắc mệnh</strong> và không phù hợp làm số liên lạc chủ đạo lâu dài. Việc tiếp tục sử dụng có thể cản trở tài vận, gây bất hòa gia đạo và làm hao tổn sinh khí cát tường.
+      </p>
+      <div class="h-px bg-slate-800/80 my-2"></div>
+      <p class="leading-relaxed text-gold-300 font-medium">
+        👉 <strong>Hành động cần thiết:</strong> Hãy click nút phía dưới để chuyển sang <strong>Bước 2</strong>. Dịch sư sẽ đối chiếu với bản mệnh Bát Tự của bạn để đề xuất phương án cải vận và chọn dãy số trợ mệnh đại cát tối ưu nhất!
+      </p>
+    </div>`
   } else {
-    return 'Tổng hợp các yếu tố trên, con số này có thể sử dụng ổn định ở mức độ nhất định. Để biết mức độ phù hợp chính xác hơn với từng người, nên xét thêm cung mệnh và giai đoạn vận hiện tại.'
+    return `<div class="space-y-3 text-left">
+      <p class="leading-relaxed">
+        ✨ <strong class="text-emerald-400 font-extrabold uppercase">Đánh giá chung:</strong> Số điện thoại này có các yếu tố phong thủy <strong class="text-emerald-400 font-black">tương đối cát lợi và hài hòa</strong>. Tuy nhiên, một số SIM cát chung chưa chắc đã bổ trợ đúng hành khuyết trong bản mệnh (Bát Tự) của riêng bạn.
+      </p>
+      <div class="h-px bg-slate-800/80 my-2"></div>
+      <p class="leading-relaxed text-gold-300 font-medium">
+        👉 <strong>Lời khuyên Dịch sư:</strong> Hãy click nút phía dưới chuyển sang <strong>Bước 2</strong> để đối chiếu SIM này với Giờ/Ngày/Tháng/Năm sinh của bạn, từ đó lựa chọn phương án bổ khuyết cải vận hoàn hảo nhất!
+      </p>
+    </div>`
   }
 })
 
 async function selectPackage(pkg: '200k' | '500k') {
   checkoutError.value = ''
-  if (!selectedTopic.value) {
-    checkoutError.value = 'Vui lòng chọn vấn đề cần cải vận nhất.'
-    return
+  
+  if (pkg === '200k') {
+    if (selectedTopics.value.length !== 2) {
+      checkoutError.value = 'Vui lòng chọn đúng 2 vấn đề cần cải vận cho gói 200k.'
+      return
+    }
+    if (!selectedCarrier.value) {
+      checkoutError.value = 'Vui lòng chọn nhà mạng muốn tư vấn.'
+      return
+    }
+  } else if (pkg === '500k') {
+    // Tự động chọn tất cả 5 vấn đề cho gói 500k
+    selectedTopics.value = [...TOPICS];
   }
-  if (pkg === '200k' && !selectedCarrier.value) {
-    checkoutError.value = 'Vui lòng chọn nhà mạng muốn tư vấn.'
-    return
-  }
+  
   try {
     await orderStore.createOrder(pkg, {
       carrier: pkg === '200k' ? selectedCarrier.value : undefined,
-      consultationTopic: selectedTopic.value
+      consultationTopic: selectedTopics.value.join(', ')
     })
     selectedPackage.value = pkg
     showCheckout.value = true
@@ -209,14 +270,23 @@ const formattedAiAnalysis = computed(() => {
 </script>
 
 <template>
-  <div v-if="result && user" class="min-h-screen bg-slate-950 text-slate-100">
+  <div v-if="result && user" class="min-h-screen celestial-bg text-slate-100">
+    <!-- Background Ambient Glows -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      <div class="cosmic-glow-1 animate-float-glow-1"></div>
+      <div class="cosmic-glow-2 animate-float-glow-2"></div>
+      <div class="cosmic-glow-3 animate-float-glow-3"></div>
+    </div>
+
     <!-- Header -->
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
       <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🕉️</span>
+        <router-link to="/" class="flex items-center gap-2 hover:opacity-85 transition-opacity">
+          <div class="halo-effect">
+            <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-8 h-8 rounded-full object-cover relative z-10" />
+          </div>
           <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">DI NHÂN PHONG THỦY SỐ</span>
-        </div>
+        </router-link>
         <BaseButton variant="ghost" size="sm" class="!text-xs sm:!text-sm" @click="router.push('/')">← Kiểm tra SIM khác</BaseButton>
       </div>
     </header>
@@ -236,10 +306,10 @@ const formattedAiAnalysis = computed(() => {
         </div>
         
         <div class="mt-4 flex flex-col items-center justify-center relative z-10">
-          <div class="w-32 h-32 rounded-full border-4 border-slate-800/80 flex flex-col items-center justify-center bg-slate-900/80 shadow-inner relative">
-            <div class="absolute inset-0 rounded-full border border-gold-500/20 animate-pulse"></div>
+          <div class="w-32 h-32 rounded-full border-4 flex flex-col items-center justify-center bg-slate-900/80 shadow-inner relative" :class="scoreCircleClass">
+            <div class="absolute inset-0 rounded-full border" :class="scoreInnerPulseClass"></div>
             <span class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Tương hợp</span>
-            <span class="text-5xl font-black text-gold-400 leading-none my-1" :class="totalLabel?.color">{{ result.totalScore }}</span>
+            <span class="text-5xl font-black leading-none my-1" :class="totalLabel?.color">{{ result.totalScore }}</span>
             <span class="text-slate-500 text-[10px] font-semibold">/100</span>
           </div>
           <div class="text-lg font-bold mt-3" :class="totalLabel?.color">
@@ -252,6 +322,19 @@ const formattedAiAnalysis = computed(() => {
                :style="{ width: `${result.totalScore}%` }" />
         </div>
       </GlassCard>
+
+      <!-- Banner Cảnh Báo Hung / Đại Hung -->
+      <div v-if="hasĐạiHungOrHung" class="bg-red-500/10 border-2 border-red-500/40 rounded-2xl p-5 flex items-start gap-4 animate-pulse-danger relative z-10 max-w-2xl mx-auto shadow-lg shadow-red-950/20">
+        <div class="text-4xl shrink-0 animate-bounce select-none">⚠️</div>
+        <div class="space-y-1">
+          <h4 class="font-black text-red-400 text-sm sm:text-base uppercase tracking-wider flex items-center gap-1.5">
+            Cảnh Báo Phong Thủy Cát Hung!
+          </h4>
+          <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            Số điện thoại của bạn chứa quẻ <strong class="text-red-400 font-extrabold underline animate-pulse">ĐẠI HUNG</strong> hoặc <strong class="text-red-400 font-extrabold underline">HUNG</strong> ở các giai đoạn vận mệnh. Điều này báo hiệu sự suy giảm sinh khí, dễ gặp trục trặc, cản trở tài lộc hoặc sức khỏe bất ổn. Quý gia chủ nên xem chi tiết luận giải bên dưới và cân nhắc đăng ký **luận cải vận phong thủy** để hóa giải điềm hung, kích hoạt cát khí.
+          </p>
+        </div>
+      </div>
 
       <!-- 1️⃣ Nguyên văn quẻ gốc (Stacked from top to bottom) -->
       <div class="space-y-4">
@@ -544,9 +627,7 @@ const formattedAiAnalysis = computed(() => {
         <GlassCard class="p-6 text-center space-y-4 relative overflow-hidden border-gold-500/20 bg-slate-900/30 shadow-lg">
           <div class="absolute -bottom-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl pointer-events-none"></div>
           
-          <div class="text-slate-300 leading-relaxed text-xs sm:text-sm p-4 bg-slate-950/60 rounded-xl border border-slate-800/60 relative z-10 shadow-inner">
-            {{ conclusionText }}
-          </div>
+          <div class="text-slate-300 leading-relaxed text-xs sm:text-sm p-4 bg-slate-950/60 rounded-xl border border-slate-800/60 relative z-10 shadow-inner" v-html="conclusionText"></div>
 
           <!-- Nút CTA mở Bước 2 -->
           <div v-if="!showStep2" class="text-center relative z-10 pt-2">
@@ -568,22 +649,27 @@ const formattedAiAnalysis = computed(() => {
           <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
           
           <div class="text-center space-y-2 relative z-10">
-            <h3 class="text-lg sm:text-xl font-black gold-gradient-text uppercase tracking-wide">Bước 2: Luận Mệnh Chi Tiết & Chọn Phương Án Cải Vận</h3>
-            <p class="text-slate-400 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">Để được tư vấn chọn SIM phù hợp và cải thiện vận trình, vui lòng chọn vấn đề bạn đang quan tâm nhất.</p>
+            <h3 class="text-lg sm:text-xl font-black gold-gradient-text uppercase tracking-wide">Bước 2: DI NHÂN CẢI VẬN CHO BẠN</h3>
+            <p class="text-slate-400 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">Để đzược tư vấn chọn SIM phù hợp và cải thiện vận trình, vui lòng chọn vấn đề bạn đang quan tâm nhất.</p>
           </div>
 
           <!-- Lựa chọn vấn đề cải vận -->
           <div class="space-y-3 relative z-10">
-            <label class="text-xs sm:text-sm font-semibold text-slate-300 block text-center uppercase tracking-wider text-gold-400">Vấn đề bạn cần cải vận nhất <span class="text-red-400">*</span></label>
+            <label class="text-xs sm:text-sm font-semibold text-slate-300 block text-center uppercase tracking-wider text-gold-400">
+              Vấn đề bạn cần cải vận nhất <span class="text-red-400">*</span>
+            </label>
+            <p class="text-[11px] text-gold-400/80 text-center italic mt-0.5">
+              💡 Chú ý: Gói 200k chọn đúng 2 vấn đề; Gói 500k được hỗ trợ toàn bộ cả 5 vấn đề.
+            </p>
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 max-w-2xl mx-auto">
               <button
                 v-for="area in TOPICS"
                 :key="area"
                 type="button"
-                @click="selectedTopic = area"
+                @click="toggleTopic(area)"
                 :class="[
                   'py-2.5 px-3 rounded-xl text-xs font-bold border transition-all duration-300 active:scale-95 shadow-sm',
-                  selectedTopic === area
+                  selectedTopics.includes(area)
                     ? 'bg-gradient-to-r from-gold-600 to-gold-400 border-gold-400 text-slate-950 shadow-md shadow-gold-500/20'
                     : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-gold-500/30 hover:text-slate-200 hover:bg-slate-800/60',
                 ]"
@@ -591,8 +677,8 @@ const formattedAiAnalysis = computed(() => {
             </div>
           </div>
 
-          <!-- Hiển thị các gói cải vận khi đã chọn chủ đề -->
-          <div v-if="selectedTopic" class="space-y-5 pt-6 border-t border-slate-800/80 relative z-10">
+          <!-- Hiển thị các gói cải vận khi đã chọn ít nhất 1 chủ đề -->
+          <div v-if="selectedTopics.length > 0" class="space-y-5 pt-6 border-t border-slate-800/80 relative z-10">
             <p v-if="checkoutError" class="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-center font-medium">{{ checkoutError }}</p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
@@ -614,8 +700,8 @@ const formattedAiAnalysis = computed(() => {
                   <ul class="text-xs text-slate-400 space-y-2">
                     <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Luận giải chọn SIM mới (chưa gồm tiền mua SIM)</li>
                     <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Giá SIM đề xuất dao động từ 2 – 3 triệu trở xuống</li>
-                    <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Tư vấn chuyên biệt để cải thiện khía cạnh <span class="text-gold-300 font-bold">"{{ selectedTopic }}"</span></li>
-                    <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Chat trực tiếp trao đổi thông tin với tư vấn viên</li>
+                    <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Tư vấn chuyên biệt để cải thiện khía cạnh <span class="text-gold-300 font-bold">"{{ selectedTopics.join(', ') }}"</span></li>
+                    <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Chat trực tiếp trao đổi thông tin với dịch sư</li>
                     <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Nhận tử vi nhắc nhở vận cát hung hàng tháng qua Email</li>
                   </ul>
                   
@@ -663,7 +749,7 @@ const formattedAiAnalysis = computed(() => {
                   </div>
                   
                   <ul class="text-xs text-slate-400 space-y-2">
-                    <li class="flex items-start gap-1.5"><span class="text-purple-500 font-bold">✔</span> Luận giải chi tiết chuyên sâu về chủ đề <span class="text-purple-300 font-bold">"{{ selectedTopic }}"</span></li>
+                    <li class="flex items-start gap-1.5"><span class="text-purple-500 font-bold">✔</span> Luận giải chi tiết chuyên sâu về các chủ đề <span class="text-purple-300 font-bold">"{{ selectedTopics.length === 5 ? 'Tất cả 5 khía cạnh' : selectedTopics.join(', ') }}"</span></li>
                     <li class="flex items-start gap-1.5"><span class="text-purple-500 font-bold">✔</span> Trực tiếp đàm luận qua Zalo cùng dịch sư phong thủy</li>
                     <li class="flex items-start gap-1.5"><span class="text-purple-500 font-bold">✔</span> Hỗ trợ xem và chọn SIM cải vận hoàn toàn miễn phí đi kèm</li>
                     <li class="flex items-start gap-1.5"><span class="text-purple-500 font-bold">✔</span> Phân tích can chi, cung phi và các đại hạn trong năm</li>
@@ -690,7 +776,7 @@ const formattedAiAnalysis = computed(() => {
     <CheckoutModal
       v-if="showCheckout && orderStore.currentOrder"
       :carrier="selectedPackage === '200k' ? selectedCarrier : undefined"
-      :consultation-topic="selectedTopic"
+      :consultation-topic="selectedTopics.join(', ')"
       :referral-code="user.referralCode ?? undefined"
       @close="showCheckout = false"
     />

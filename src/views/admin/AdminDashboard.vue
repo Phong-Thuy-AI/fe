@@ -77,6 +77,37 @@ async function logout() {
   router.replace('/admin/login')
 }
 
+const simLastDigits = ref('')
+const isConfirmingSim = ref(false)
+
+async function confirmSim() {
+  if (!selectedRoom.value || !selectedRoom.value.order) return
+  const digits = simLastDigits.value.trim()
+  if (!digits || !/^\d{2,3}$/.test(digits)) {
+    alert('Vui lòng nhập đúng 2 hoặc 3 chữ số đuôi SIM mới.')
+    return
+  }
+  isConfirmingSim.value = true
+  try {
+    const res = await api.post(`/admin/orders/${selectedRoom.value.order.id}/confirm-sim`, {
+      lastDigits: digits
+    })
+    alert(`Chốt SIM thành công! Mã giới thiệu sinh ra: ${res.data.data.referralCode}`)
+    
+    if (selectedRoom.value.order.user) {
+      selectedRoom.value.order.user.referralCode = res.data.data.referralCode
+    }
+    simLastDigits.value = ''
+    
+    // Re-join room to pull the new system message
+    await chatStore.joinRoom(selectedRoom.value.id)
+  } catch (err: any) {
+    alert(err?.response?.data?.error?.message ?? 'Lỗi khi chốt SIM.')
+  } finally {
+    isConfirmingSim.value = false
+  }
+}
+
 // Trạng thái Quản lý Đơn hàng
 const orders = ref<any[]>([])
 const loadingOrders = ref(false)
@@ -340,7 +371,7 @@ onUnmounted(() => chatStore.disconnect())
     <!-- Top bar -->
     <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-3 sm:px-4 h-14 flex items-center justify-between">
       <div class="items-center gap-1.5 sm:gap-3 hidden sm:flex">
-        <span class="text-lg sm:text-xl hidden sm:inline">🕉️</span>
+        <img src="/image-bg.png" alt="Logo" class="w-6 h-6 rounded-full object-cover border border-gold-500/30 hidden sm:inline" />
         <span class="font-bold gold-gradient-text text-xs sm:text-sm hidden sm:inline">Admin Dashboard</span>
         <span class="font-bold gold-gradient-text text-xs sm:hidden">Admin</span>
         <span class="text-[10px] sm:text-xs text-slate-500 hidden md:inline">{{ authStore.adminUsername }}</span>
@@ -462,6 +493,33 @@ onUnmounted(() => chatStore.disconnect())
                 </div>
                 <div v-if="selectedRoomCarrier" class="text-xs text-slate-500">📡 Nhà mạng: {{ selectedRoomCarrier }}</div>
                 <div v-if="selectedRoomTopic" class="text-xs text-slate-500">💡 Vấn đề: {{ selectedRoomTopic }}</div>
+                
+                <!-- Chốt SIM mới & Sinh mã giới thiệu -->
+                <div class="mt-2.5 pt-2.5 border-t border-slate-800/80 flex items-center gap-2 flex-wrap">
+                  <span class="text-xs text-slate-400 font-semibold shrink-0">Chốt SIM mới:</span>
+                  <template v-if="selectedRoom.order?.user?.referralCode">
+                    <span class="text-xs bg-gold-500/10 text-gold-400 border border-gold-500/20 px-2 py-0.5 rounded font-mono font-bold">
+                      Mã GT: {{ selectedRoom.order.user.referralCode }}
+                    </span>
+                  </template>
+                  <template v-else>
+                    <input
+                      v-model="simLastDigits"
+                      type="text"
+                      placeholder="Số đuôi SIM (2-3 số)"
+                      maxlength="3"
+                      class="w-32 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-xs text-slate-100 focus:outline-none focus:border-gold-500"
+                    />
+                    <BaseButton
+                      size="sm"
+                      class="!py-0.5 !px-2 text-[10px] font-bold shrink-0"
+                      :loading="isConfirmingSim"
+                      @click="confirmSim"
+                    >
+                      🔑 Chốt SIM
+                    </BaseButton>
+                  </template>
+                </div>
               </div>
               <div class="flex flex-wrap items-center justify-end gap-1.5 shrink-0 max-w-[50%] md:max-w-none">
                 <!-- Zalo cho 500k -->
@@ -493,8 +551,26 @@ onUnmounted(() => chatStore.disconnect())
             </div>
             <template v-for="msg in chatStore.messages" :key="msg.id">
               <!-- System message -->
-              <div v-if="msg.senderType === 'system'" class="flex justify-center my-2">
-                <div class="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-3 text-xs text-slate-400 max-w-sm whitespace-pre-wrap italic leading-relaxed">
+              <div v-if="msg.senderType === 'system'" class="flex justify-center my-4 w-full">
+                <!-- Hộp quà chốt SIM đặc biệt -->
+                <div v-if="msg.message.includes('🎁 MÃ GIỚI THIỆU CỦA BẠN:')" class="bg-gradient-to-br from-slate-900/90 to-purple-950/40 border border-gold-500/30 rounded-2xl p-6 text-center max-w-sm w-full shadow-xl relative overflow-hidden">
+                  <!-- Background glows -->
+                  <div class="absolute -top-12 -left-12 w-24 h-24 bg-gold-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                  <div class="absolute -bottom-12 -right-12 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                  
+                  <div class="text-4xl mb-3 animate-bounce">🎉</div>
+                  <h4 class="text-sm font-black text-gold-400 uppercase tracking-widest mb-1.5">Chốt SIM Thành Công!</h4>
+                  <p class="text-[11px] text-slate-300 mb-4 leading-relaxed">
+                    Chúc mừng khách hàng đã sở hữu số điện thoại mới đại cát. Mã giới thiệu:
+                  </p>
+                  <div class="bg-slate-950/80 border border-gold-500/30 rounded-xl py-2.5 px-6 inline-block font-mono text-xl font-black text-gold-400 tracking-widest shadow-inner mb-4">
+                    {{ msg.message.replace('🎁 MÃ GIỚI THIỆU CỦA BẠN:', '').trim() }}
+                  </div>
+                  <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1.5 bg-slate-900/50 py-2 rounded-lg border border-slate-800/40">
+                    <span>🎁</span> Đã tặng thêm <strong class="text-purple-400 font-bold">1 tháng tử vi hằng ngày</strong>
+                  </div>
+                </div>
+                <div v-else class="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-3 text-xs text-slate-400 max-w-sm whitespace-pre-wrap italic leading-relaxed">
                   {{ msg.message }}
                 </div>
               </div>

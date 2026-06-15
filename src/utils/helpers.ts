@@ -48,7 +48,7 @@ export function getVậnCardClass(classification: string): string {
   if (c.includes('BÁN CÁT') || c.includes('BÁN HUNG')) {
     return '!border-l-4 !border-l-yellow-500 !border-yellow-500/25 bg-yellow-950/10 hover:!border-yellow-500/40 hover:shadow-lg hover:shadow-yellow-950/20'
   }
-  return '!border-l-4 !border-l-red-500 !border-red-500/25 bg-red-950/10 hover:!border-red-500/40 hover:shadow-lg hover:shadow-red-950/20'
+  return '!border-l-4 !border-l-red-500 !border-red-500/25 bg-red-950/10 hover:!border-red-500/40 hover:shadow-lg hover:shadow-red-950/20 animate-pulse-danger'
 }
 
 export function getVậnGlowClass(classification: string): string {
@@ -76,7 +76,7 @@ export function getClassificationClass(classification: string): string {
     return 'bg-yellow-500 text-slate-950 border-yellow-400 font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.35)]'
   }
   if (c.includes('ĐẠI HUNG')) {
-    return 'bg-red-600 text-white border-red-500 font-extrabold shadow-[0_0_12px_rgba(239,68,68,0.4)]'
+    return 'bg-red-600 text-white border-red-500 font-extrabold shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-flash-danger-text'
   }
   return 'bg-red-500 text-white border-red-400 font-extrabold shadow-[0_0_10px_rgba(239,68,68,0.2)]'
 }

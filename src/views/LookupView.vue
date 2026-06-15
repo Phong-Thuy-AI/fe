@@ -73,6 +73,36 @@ const resultObj = computed(() => parsedCheckResult())
 
 const totalLabelObj = computed(() => resultObj.value ? scoreLabel(resultObj.value.totalScore) : null)
 
+const hasĐạiHungOrHungObj = computed(() => {
+  if (!resultObj.value) return false
+  const list = [
+    parsedTien.value?.classification,
+    parsedTrung.value?.classification,
+    parsedHau.value?.classification
+  ]
+  return list.some(c => {
+    if (!c) return false
+    const u = c.toUpperCase()
+    return u.includes('ĐẠI HUNG') || u === 'HUNG'
+  })
+})
+
+const scoreCircleClassObj = computed(() => {
+  if (!resultObj.value) return 'border-slate-800/80 shadow-inner'
+  const score = resultObj.value.totalScore
+  if (score >= 60) return 'border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+  if (score >= 40) return 'border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+  return 'border-red-500/40 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse-danger'
+})
+
+const scoreInnerPulseClassObj = computed(() => {
+  if (!resultObj.value) return 'border-gold-500/20 animate-pulse'
+  const score = resultObj.value.totalScore
+  if (score >= 60) return 'border-emerald-500/20 animate-pulse'
+  if (score >= 40) return 'border-amber-500/20 animate-pulse'
+  return 'border-red-500/50 animate-ping'
+})
+
 const parsedTien = computed(() => resultObj.value ? parseQueText(resultObj.value.hexagrams.cleaned.tien) : null)
 const parsedTrung = computed(() => resultObj.value ? parseQueText(resultObj.value.hexagrams.cleaned.trung) : null)
 const parsedHau = computed(() => resultObj.value ? parseQueText(resultObj.value.hexagrams.cleaned.hau) : null)
@@ -98,9 +128,25 @@ const isHungGroupObj = computed(() => {
 
 const conclusionTextObj = computed(() => {
   if (isHungGroupObj.value) {
-    return 'Tổng hợp các yếu tố trên, con số này chưa tối ưu để dùng làm số chủ đạo lâu dài, nhưng vẫn có thể sử dụng an toàn nếu đặt đúng vai trò và thời điểm. Để kết luận chính xác hơn, cần xét thêm cung mệnh và giai đoạn vận hiện tại.'
+    return `<div class="space-y-3 text-left">
+      <p class="leading-relaxed">
+        ⚠️ <strong class="text-red-400 font-extrabold uppercase">Đánh giá chung:</strong> Số điện thoại này <strong class="text-red-400 font-black underline">chứa nhiều điềm hung, khắc mệnh</strong> và không phù hợp làm số liên lạc chủ đạo lâu dài. Việc tiếp tục sử dụng có thể cản trở tài vận, gây bất hòa gia đạo và làm hao tổn sinh khí cát tường.
+      </p>
+      <div class="h-px bg-slate-800/80 my-2"></div>
+      <p class="leading-relaxed text-gold-300 font-medium">
+        👉 <strong>Khuyên dùng:</strong> Hãy đăng ký luận giải mệnh lý chi tiết và phương án cải vận để được Dịch sư hỗ trợ hóa giải quẻ xấu, đổi SIM đại cát.
+      </p>
+    </div>`
   } else {
-    return 'Tổng hợp các yếu tố trên, con số này có thể sử dụng ổn định ở mức độ nhất định. Để biết mức độ phù hợp chính xác hơn với từng người, nên xét thêm cung mệnh và giai đoạn vận hiện tại.'
+    return `<div class="space-y-3 text-left">
+      <p class="leading-relaxed">
+        ✨ <strong class="text-emerald-400 font-extrabold uppercase">Đánh giá chung:</strong> Số điện thoại này có các yếu tố phong thủy <strong class="text-emerald-400 font-black">tương đối cát lợi và hài hòa</strong>. Tuy nhiên, một số SIM cát chung chưa chắc đã bổ trợ đúng hành khuyết trong bản mệnh (Bát Tự) của riêng bạn.
+      </p>
+      <div class="h-px bg-slate-800/80 my-2"></div>
+      <p class="leading-relaxed text-gold-300 font-medium">
+        👉 <strong>Lời khuyên Dịch sư:</strong> Nên cân nhắc đối chiếu chuyên sâu SIM này với Giờ/Ngày/Tháng/Năm sinh cụ thể của bạn để tối ưu hóa sự tương hợp và cát khí.
+      </p>
+    </div>`
   }
 })
 
@@ -202,13 +248,21 @@ const formattedAiAnalysis = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="min-h-screen celestial-bg text-slate-100">
+    <!-- Background Ambient Glows -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      <div class="cosmic-glow-1 animate-float-glow-1"></div>
+      <div class="cosmic-glow-2 animate-float-glow-2"></div>
+      <div class="cosmic-glow-3 animate-float-glow-3"></div>
+    </div>
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
       <div :class="['mx-auto px-4 h-16 flex items-center justify-between transition-all duration-300', result ? 'max-w-4xl' : 'max-w-lg']">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🕉️</span>
+        <router-link to="/" class="flex items-center gap-2 hover:opacity-85 transition-opacity">
+          <div class="halo-effect">
+            <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-8 h-8 rounded-full object-cover relative z-10" />
+          </div>
           <span class="font-bold tracking-wide gold-gradient-text uppercase text-sm sm:text-lg">DI NHÂN PHONG THỦY SỐ</span>
-        </div>
+        </router-link>
         <button v-if="result" class="text-xs sm:text-sm text-slate-400 hover:text-gold-300 transition" @click="result = null; form.email = ''; form.phone = ''">
           ← Tra cứu số khác
         </button>
@@ -230,6 +284,7 @@ const formattedAiAnalysis = computed(() => {
           <div class="relative w-12 h-12">
             <div class="absolute inset-0 rounded-full border-4 border-gold-500/20"></div>
             <div class="absolute inset-0 rounded-full border-4 border-t-gold-400 animate-spin"></div>
+            <img src="/image.png" alt="Loading" class="absolute inset-0 m-auto w-6 h-6 rounded-full object-cover" />
           </div>
           <p class="text-gold-300 text-sm font-medium animate-pulse">Đang tra cứu...</p>
         </div>
@@ -273,10 +328,10 @@ const formattedAiAnalysis = computed(() => {
             </div>
             
             <div class="mt-4 flex flex-col items-center justify-center relative z-10">
-              <div class="w-32 h-32 rounded-full border-4 border-slate-800/80 flex flex-col items-center justify-center bg-slate-900/80 shadow-inner relative">
-                <div class="absolute inset-0 rounded-full border border-gold-500/20 animate-pulse"></div>
+              <div class="w-32 h-32 rounded-full border-4 flex flex-col items-center justify-center bg-slate-900/80 shadow-inner relative" :class="scoreCircleClassObj">
+                <div class="absolute inset-0 rounded-full border" :class="scoreInnerPulseClassObj"></div>
                 <span class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Tương hợp</span>
-                <span class="text-5xl font-black text-gold-400 leading-none my-1" :class="totalLabelObj?.color">{{ resultObj.totalScore }}</span>
+                <span class="text-5xl font-black leading-none my-1" :class="totalLabelObj?.color">{{ resultObj.totalScore }}</span>
                 <span class="text-slate-500 text-[10px] font-semibold">/100</span>
               </div>
               <div class="text-lg font-bold mt-3" :class="totalLabelObj?.color">
@@ -289,6 +344,19 @@ const formattedAiAnalysis = computed(() => {
                    :style="{ width: `${resultObj.totalScore}%` }" />
             </div>
           </GlassCard>
+
+          <!-- Banner Cảnh Báo Hung / Đại Hung -->
+          <div v-if="hasĐạiHungOrHungObj" class="bg-red-500/10 border-2 border-red-500/40 rounded-2xl p-5 flex items-start gap-4 animate-pulse-danger relative z-10 max-w-2xl mx-auto shadow-lg shadow-red-950/20">
+            <div class="text-4xl shrink-0 animate-bounce select-none">⚠️</div>
+            <div class="space-y-1">
+              <h4 class="font-black text-red-400 text-sm sm:text-base uppercase tracking-wider flex items-center gap-1.5">
+                Cảnh Báo Phong Thủy Cát Hung!
+              </h4>
+              <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Số điện thoại của bạn chứa quẻ <strong class="text-red-400 font-extrabold underline animate-pulse">ĐẠI HUNG</strong> hoặc <strong class="text-red-400 font-extrabold underline">HUNG</strong> ở các giai đoạn vận mệnh. Điều này báo hiệu sự suy giảm sinh khí, dễ gặp trục trặc, cản trở tài lộc hoặc sức khỏe bất ổn. Quý gia chủ nên xem chi tiết luận giải bên dưới và cân nhắc đăng ký **luận cải vận phong thủy** để hóa giải điềm hung, kích hoạt cát khí.
+              </p>
+            </div>
+          </div>
 
           <!-- 1️⃣ VẬN MỆNH (theo từng giai đoạn) -->
           <div class="space-y-4">
@@ -571,9 +639,7 @@ const formattedAiAnalysis = computed(() => {
             <h3 class="font-bold text-slate-300 flex items-center gap-2"><span>7️⃣</span> Kết luận & Cải vận</h3>
             <GlassCard class="p-6 text-center space-y-4 relative overflow-hidden border-gold-500/20 bg-slate-900/30 shadow-lg">
               <div class="absolute -bottom-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl pointer-events-none"></div>
-              <div class="text-slate-300 leading-relaxed text-xs sm:text-sm p-4 bg-slate-950/60 rounded-xl border border-slate-800/60 relative z-10 shadow-inner">
-                {{ conclusionTextObj }}
-              </div>
+              <div class="text-slate-300 leading-relaxed text-xs sm:text-sm p-4 bg-slate-950/60 rounded-xl border border-slate-800/60 relative z-10 shadow-inner" v-html="conclusionTextObj"></div>
             </GlassCard>
           </div>
         </template>
