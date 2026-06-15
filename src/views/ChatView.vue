@@ -74,7 +74,7 @@ const messages = computed(() => chatStore.messages)
     <!-- Header -->
     <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-4 h-16 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <span class="text-xl">🕉️</span>
+        <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-7 h-7 rounded-full object-cover border border-gold-500/30" />
         <div>
           <div class="font-bold text-sm gold-gradient-text">
             {{ is500k ? '🌟 Phòng Tư Vấn Chuyên Sâu' : '💬 Phòng Tư Vấn Đổi SIM' }}
@@ -90,7 +90,7 @@ const messages = computed(() => chatStore.messages)
 
     <!-- Banner 500k Zalo -->
     <div v-if="is500k && !isClosed" class="shrink-0 bg-purple-900/40 border-b border-purple-500/20 px-4 py-2 flex items-center justify-between">
-      <p class="text-xs text-purple-300">🌟 Gói 500k — Sau khi chat, tư vấn viên sẽ hỗ trợ chuyên sâu qua Zalo</p>
+      <p class="text-xs text-purple-300">🌟 Gói 500k — Sau khi chat, dịch sư sẽ hỗ trợ chuyên sâu qua Zalo</p>
       <a :href="ZALO_LINK" target="_blank" class="text-xs text-purple-400 hover:text-purple-300 underline shrink-0">
         Zalo: {{ ZALO_ADMIN_NUMBER }}
       </a>
@@ -110,15 +110,33 @@ const messages = computed(() => chatStore.messages)
 
       <template v-for="msg in messages" :key="msg.id">
         <!-- System message: centered info card -->
-        <div v-if="msg.senderType === 'system'" class="flex justify-center my-2">
-          <div class="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-3 text-xs text-slate-400 max-w-sm whitespace-pre-wrap italic leading-relaxed">
+        <div v-if="msg.senderType === 'system'" class="flex justify-center my-4 w-full">
+          <!-- Hộp quà chốt SIM đặc biệt -->
+          <div v-if="msg.message.includes('🎁 MÃ GIỚI THIỆU CỦA BẠN:')" class="bg-gradient-to-br from-slate-900/90 to-purple-950/40 border border-gold-500/30 rounded-2xl p-6 text-center max-w-sm w-full shadow-xl relative overflow-hidden">
+            <!-- Background glows -->
+            <div class="absolute -top-12 -left-12 w-24 h-24 bg-gold-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="absolute -bottom-12 -right-12 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div class="text-4xl mb-3 animate-bounce">🎉</div>
+            <h4 class="text-sm font-black text-gold-400 uppercase tracking-widest mb-1.5">Chốt SIM Thành Công!</h4>
+            <p class="text-[11px] text-slate-300 mb-4 leading-relaxed">
+              Chúc mừng bạn đã sở hữu số điện thoại mới đại cát. Hãy chia sẻ mã giới thiệu dưới đây cho bạn bè:
+            </p>
+            <div class="bg-slate-950/80 border border-gold-500/30 rounded-xl py-2.5 px-6 inline-block font-mono text-xl font-black text-gold-400 tracking-widest shadow-inner mb-4">
+              {{ msg.message.replace('🎁 MÃ GIỚI THIỆU CỦA BẠN:', '').trim() }}
+            </div>
+            <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1.5 bg-slate-900/50 py-2 rounded-lg border border-slate-800/40">
+              <span>🎁</span> Đã tặng thêm <strong class="text-purple-400 font-bold">1 tháng tử vi hằng ngày</strong>
+            </div>
+          </div>
+          <div v-else class="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-3 text-xs text-slate-400 max-w-sm whitespace-pre-wrap italic leading-relaxed">
             {{ msg.message }}
           </div>
         </div>
 
         <!-- User / Admin messages -->
         <div v-else :class="['flex', msg.senderType === 'user' ? 'justify-end' : 'justify-start']">
-          <div v-if="msg.senderType === 'admin'" class="w-7 h-7 rounded-full bg-gold-500/20 flex items-center justify-center text-sm shrink-0 mr-2 mt-1">🧙</div>
+          <img v-if="msg.senderType === 'admin'" src="/image-bg.png" alt="Dịch sư" class="w-7 h-7 rounded-full object-cover border border-gold-500/30 shrink-0 mr-2 mt-1" />
           <div :class="[
             'max-w-xs sm:max-w-md rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
             msg.senderType === 'user'

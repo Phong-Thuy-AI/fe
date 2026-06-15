@@ -88,13 +88,15 @@ onUnmounted(() => {
 
       <!-- Đã thanh toán thành công -->
       <div v-if="isPaid" class="text-center py-6 space-y-4">
-        <div class="text-6xl animate-bounce">✨</div>
+        <div class="flex justify-center">
+          <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-24 h-24 object-cover rounded-full animate-bounce" />
+        </div>
         <h3 class="text-2xl font-bold gold-gradient-text">Thanh Toán Thành Công!</h3>
         <p class="text-slate-300 text-sm">Đang chuyển đến phòng tư vấn...</p>
 
         <!-- Gói 500k: nhắc Zalo -->
         <div v-if="!is200k" class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 text-sm space-y-2">
-          <p class="text-purple-300">🌟 Gói 500k: Tư vấn viên sẽ liên hệ qua Zalo sau khi chat.</p>
+          <p class="text-purple-300">🌟 Gói 500k: Dịch sư sẽ liên hệ qua Zalo sau khi chat.</p>
           <a :href="ZALO_LINK" target="_blank">
             <BaseButton size="sm" variant="ghost" class="!border-purple-500/50 !text-purple-300 w-full">
               💬 Nhắn tin Zalo ngay
@@ -103,10 +105,9 @@ onUnmounted(() => {
         </div>
 
         <!-- Referral code sau khi thanh toán -->
-        <div v-if="props.referralCode" class="bg-gold-500/10 border border-gold-500/20 rounded-xl p-3 text-sm">
-          <p class="text-slate-400 text-xs mb-1">Mã giới thiệu của bạn</p>
-          <p class="font-mono text-lg font-bold text-gold-400">{{ props.referralCode }}</p>
-          <p class="text-slate-500 text-xs mt-1">Chia sẻ để nhận +1 tháng tử vi miễn phí</p>
+        <div class="bg-gold-500/10 border border-gold-500/20 rounded-xl p-3.5 text-xs text-slate-300 leading-relaxed text-left">
+          <p class="text-gold-400 font-bold mb-1 flex items-center gap-1"><span>🎁</span> Đặc quyền quà tặng:</p>
+          Mã giới thiệu & đặc quyền tặng 1 tháng tử vi hằng ngày miễn phí sẽ được kích hoạt và gửi trực tiếp trong phòng chat sau khi chốt SIM mới thành công.
         </div>
       </div>
 

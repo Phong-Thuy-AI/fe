@@ -29,8 +29,8 @@ async function login() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-    <GlassCard class="w-full max-w-sm p-8 space-y-6">
+  <div class="min-h-screen celestial-bg flex items-center justify-center px-4">
+    <GlassCard class="w-full max-w-sm p-8 space-y-6 animate-gold-glow-pulse border border-gold-500/20 relative">
       <div class="text-center space-y-2">
         <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gold-500/10 text-3xl">🔐</div>
         <h1 class="text-xl font-bold gold-gradient-text">Quản Trị Viên</h1>
@@ -45,6 +45,12 @@ async function login() {
       <p v-if="error" class="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 text-center">{{ error }}</p>
 
       <BaseButton type="submit" full-width size="lg" :loading="isLoading" @click="login">Đăng nhập</BaseButton>
+
+      <div class="text-center pt-2">
+        <router-link to="/" class="text-xs text-slate-500 hover:text-gold-400 hover:underline transition-all">
+          ← Quay lại trang chủ
+        </router-link>
+      </div>
     </GlassCard>
   </div>
 </template>
