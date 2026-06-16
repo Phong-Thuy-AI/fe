@@ -218,6 +218,10 @@ const aiModel = ref('')
 const aiModels = ref<string[]>([])
 const loadingModels = ref(false)
 
+const aiTestPrompt = ref('Hãy lập báo cáo phong thủy ngắn gọn (khoảng 30 từ) cho người mệnh Hỏa, dùng SIM ngũ hành tương sinh tốt. Trả lời trực tiếp, không thêm tuyên bố từ chối trách nhiệm (disclaimer).')
+const aiTestResult = ref('')
+const aiTestError = ref('')
+
 const smtpHost = ref('')
 const smtpPort = ref('587')
 const smtpUser = ref('')
@@ -265,7 +269,8 @@ async function loadAiModels() {
     const res = await api.get<{ data: string[] }>('/admin/ai/models', {
       params: {
         provider: aiProvider.value,
-        apiKey: activeKey
+        apiKey: activeKey,
+        proxyUrl: aiProxyUrl.value
       }
     })
     aiModels.value = res.data.data
@@ -282,6 +287,8 @@ async function loadAiModels() {
 
 async function testAi() {
   testingConnection.value = true
+  aiTestResult.value = ''
+  aiTestError.value = ''
   const activeKey = aiProvider.value === 'openai' 
     ? openaiKey.value 
     : (aiProvider.value === 'claude' ? claudeKey.value : geminiKey.value)
@@ -289,11 +296,13 @@ async function testAi() {
     const res = await api.post<{ data: { answer: string } }>('/admin/ai/test-connection', {
       provider: aiProvider.value,
       apiKey: activeKey,
-      model: aiModel.value
+      model: aiModel.value,
+      proxyUrl: aiProxyUrl.value,
+      prompt: aiTestPrompt.value
     })
-    alert(`✅ Kết nối AI thành công!\nPhản hồi từ AI: "${res.data.data.answer}"`)
+    aiTestResult.value = res.data.data.answer
   } catch (err: any) {
-    alert(err?.response?.data?.error?.message ?? 'Kết nối AI thất bại.')
+    aiTestError.value = err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || 'Kết nối AI thất bại.'
   } finally {
     testingConnection.value = false
   }
@@ -949,16 +958,40 @@ onUnmounted(() => chatStore.disconnect())
             </div>
           </div>
 
-          <div class="pt-2 border-t border-slate-800 flex justify-end gap-3">
-            <BaseButton
-              variant="ghost"
-              size="sm"
-              class="text-xs font-semibold"
-              :loading="testingConnection"
-              @click="testAi"
-            >
-              ⚡ Kiểm tra kết nối AI
-            </BaseButton>
+          <div class="pt-4 border-t border-slate-800 space-y-3">
+            <label class="block text-xs font-semibold text-slate-400 uppercase">⚡ Thử Nghiệm Trực Tiếp (AI Playground)</label>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input
+                v-model="aiTestPrompt"
+                type="text"
+                placeholder="Nhập câu hỏi test AI..."
+                class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500/50"
+                @keyup.enter="testAi"
+              />
+              <BaseButton
+                variant="ghost"
+                size="sm"
+                class="shrink-0 text-xs font-semibold w-full sm:w-auto !py-2"
+                :loading="testingConnection"
+                @click="testAi"
+              >
+                Gửi Request
+              </BaseButton>
+            </div>
+            
+            <!-- Phản hồi thành công từ AI -->
+            <div v-if="aiTestResult" class="bg-green-950/15 border border-green-500/35 rounded-xl p-3 text-xs text-slate-200">
+              <p class="font-semibold text-green-400 mb-1 flex items-center gap-1.5">
+                <span>✅ Kết nối thành công! AI Phản Hồi:</span>
+              </p>
+              <p class="whitespace-pre-wrap font-mono leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80 mt-2">{{ aiTestResult }}</p>
+            </div>
+
+            <!-- Phản hồi lỗi -->
+            <div v-if="aiTestError" class="bg-red-950/20 border border-red-500/20 rounded-xl p-3 text-xs text-red-400">
+              <p class="font-semibold text-red-500 mb-1">❌ Thất Bại:</p>
+              <p class="font-mono leading-relaxed">{{ aiTestError }}</p>
+            </div>
           </div>
         </GlassCard>
 
