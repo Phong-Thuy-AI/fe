@@ -380,7 +380,7 @@ onUnmounted(() => chatStore.disconnect())
     <!-- Top bar -->
     <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-3 sm:px-4 h-14 flex items-center justify-between">
       <div class="items-center gap-1.5 sm:gap-3 hidden sm:flex">
-        <img src="/image-bg.png" alt="Logo" class="w-6 h-6 rounded-full object-cover border border-gold-500/30 hidden sm:inline" />
+        <img src="/image-bg.png" alt="Logo" class="w-6 h-6 rounded-full object-cover object-top border border-gold-500/30 hidden sm:inline" />
         <span class="font-bold gold-gradient-text text-xs sm:text-sm hidden sm:inline">Admin Dashboard</span>
         <span class="font-bold gold-gradient-text text-xs sm:hidden">Admin</span>
         <span class="text-[10px] sm:text-xs text-slate-500 hidden md:inline">{{ authStore.adminUsername }}</span>
