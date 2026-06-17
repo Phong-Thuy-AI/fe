@@ -74,7 +74,7 @@ const messages = computed(() => chatStore.messages)
     <!-- Header -->
     <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-4 h-16 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-7 h-7 rounded-full object-cover border border-gold-500/30" />
+        <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-7 h-7 rounded-full object-cover object-top border border-gold-500/30" />
         <div>
           <div class="font-bold text-sm gold-gradient-text">
             {{ is500k ? '🌟 Phòng Tư Vấn Chuyên Sâu' : '💬 Phòng Tư Vấn Đổi SIM' }}
@@ -136,7 +136,7 @@ const messages = computed(() => chatStore.messages)
 
         <!-- User / Admin messages -->
         <div v-else :class="['flex', msg.senderType === 'user' ? 'justify-end' : 'justify-start']">
-          <img v-if="msg.senderType === 'admin'" src="/image-bg.png" alt="Dịch sư" class="w-7 h-7 rounded-full object-cover border border-gold-500/30 shrink-0 mr-2 mt-1" />
+          <img v-if="msg.senderType === 'admin'" src="/image-bg.png" alt="Dịch sư" class="w-7 h-7 rounded-full object-cover object-top border border-gold-500/30 shrink-0 mr-2 mt-1" />
           <div :class="[
             'max-w-xs sm:max-w-md rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
             msg.senderType === 'user'
