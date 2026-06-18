@@ -1,4 +1,4 @@
-export const ZALO_ADMIN_NUMBER = '0362931719'
+export const ZALO_ADMIN_NUMBER = '0858744744'
 export const ZALO_LINK = `https://zalo.me/${ZALO_ADMIN_NUMBER}`
 
 export const MENH_LIST = ['Kim', 'Mộc', 'Thủy', 'Hỏa', 'Thổ'] as const
