@@ -1,6 +1,23 @@
 import { io, Socket } from 'socket.io-client'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+const getSocketUrl = () => {
+  const envSocketUrl = import.meta.env.VITE_SOCKET_URL
+  if (envSocketUrl) return envSocketUrl
+
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  if (apiBaseUrl) {
+    try {
+      // Trích xuất origin (ví dụ: https://api.dinhanphongthuyso.com) từ API Base URL
+      return new URL(apiBaseUrl).origin
+    } catch (e) {
+      return ''
+    }
+  }
+
+  return 'http://localhost:3000'
+}
+
+const SOCKET_URL = getSocketUrl()
 
 // Khởi tạo socket với autoConnect: false để kết nối thủ công khi cần
 // withCredentials: true để gửi kèm JWT HttpOnly Cookie cho middleware xác thực
