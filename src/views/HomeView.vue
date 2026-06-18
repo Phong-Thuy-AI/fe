@@ -27,20 +27,20 @@ async function submit() {
     return
   }
   store.isLoading = true;
-  // try {
-  //   await store.checkSim({
-  //     name: form.name,
-  //     email: form.email,
-  //     phone: form.phone,
-  //     dob: form.dob,
-  //     tob: form.tob || null,
-  //     usedLessThan6Months: form.usedLessThan6Months === 'true',
-  //     referredByCode: form.referredByCode || undefined,
-  //   })
-  //   router.push('/result')
-  // } catch {
-  //   formError.value = store.error ?? 'Có lỗi xảy ra, vui lòng thử lại.'
-  // }
+  try {
+    await store.checkSim({
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      dob: form.dob,
+      tob: form.tob || null,
+      usedLessThan6Months: form.usedLessThan6Months === 'true',
+      referredByCode: form.referredByCode || undefined,
+    })
+    router.push('/result')
+  } catch {
+    formError.value = store.error ?? 'Có lỗi xảy ra, vui lòng thử lại.'
+  }
 }
 </script>
 
