@@ -90,19 +90,11 @@ const conclusionText = computed(() => {
       <p class="leading-relaxed">
         ⚠️ <strong class="text-red-400 font-extrabold uppercase">Đánh giá chung:</strong> Số điện thoại này <strong class="text-red-400 font-black underline">chứa nhiều điềm hung, khắc mệnh</strong> và không phù hợp làm số liên lạc chủ đạo lâu dài. Việc tiếp tục sử dụng có thể cản trở tài vận, gây bất hòa gia đạo và làm hao tổn sinh khí cát tường.
       </p>
-      <div class="h-px bg-slate-800/80 my-2"></div>
-      <p class="leading-relaxed text-gold-300 font-medium">
-        👉 <strong>Hành động cần thiết:</strong> Hãy click nút phía dưới để chuyển sang <strong>Bước 2</strong>. Dịch sư sẽ đối chiếu với bản mệnh Bát Tự của bạn để đề xuất phương án cải vận và chọn dãy số trợ mệnh đại cát tối ưu nhất!
-      </p>
     </div>`
   } else {
     return `<div class="space-y-3 text-left">
       <p class="leading-relaxed">
         ✨ <strong class="text-emerald-400 font-extrabold uppercase">Đánh giá chung:</strong> Số điện thoại này có các yếu tố phong thủy <strong class="text-emerald-400 font-black">tương đối cát lợi và hài hòa</strong>. Tuy nhiên, một số SIM cát chung chưa chắc đã bổ trợ đúng hành khuyết trong bản mệnh (Bát Tự) của riêng bạn.
-      </p>
-      <div class="h-px bg-slate-800/80 my-2"></div>
-      <p class="leading-relaxed text-gold-300 font-medium">
-        👉 <strong>Lời khuyên Dịch sư:</strong> Hãy click nút phía dưới chuyển sang <strong>Bước 2</strong> để đối chiếu SIM này với Giờ/Ngày/Tháng/Năm sinh của bạn, từ đó lựa chọn phương án bổ khuyết cải vận hoàn hảo nhất!
       </p>
     </div>`
   }
@@ -629,6 +621,19 @@ const formattedAiAnalysis = computed(() => {
           
           <div class="text-slate-300 leading-relaxed text-xs sm:text-sm p-4 bg-slate-950/60 rounded-xl border border-slate-800/60 relative z-10 shadow-inner" v-html="conclusionText"></div>
 
+          <!-- Video giải thích vận thế cải vận (Tự động phát không có khung điều khiển) -->
+          <div class="relative z-10 max-w-xl mx-auto my-4 overflow-hidden rounded-xl">
+            <video
+              autoplay
+              loop
+              muted
+              playsinline
+              class="w-full object-cover aspect-video"
+            >
+              <source src="/result.mp4" type="video/mp4" />
+            </video>
+          </div>
+
           <!-- Nút CTA mở Bước 2 -->
           <div v-if="!showStep2" class="text-center relative z-10 pt-2">
             <BaseButton
@@ -650,7 +655,7 @@ const formattedAiAnalysis = computed(() => {
           
           <div class="text-center space-y-2 relative z-10">
             <h3 class="text-lg sm:text-xl font-black gold-gradient-text uppercase tracking-wide">Bước 2: DI NHÂN CẢI VẬN CHO BẠN</h3>
-            <p class="text-slate-400 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">Để đzược tư vấn chọn SIM phù hợp và cải thiện vận trình, vui lòng chọn vấn đề bạn đang quan tâm nhất.</p>
+            <p class="text-slate-400 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">Để được tư vấn chọn SIM phù hợp và cải thiện vận trình, vui lòng chọn vấn đề bạn đang quan tâm nhất.</p>
           </div>
 
           <!-- Lựa chọn vấn đề cải vận -->

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFengshuiStore } from '@/stores/fengshui'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -20,12 +20,79 @@ const form = reactive({
 })
 const formError = ref('')
 
+const dobParts = reactive({
+  day: '',
+  month: '',
+  year: '',
+})
+
+const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
+const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
+
+watch(
+  () => [dobParts.day, dobParts.month, dobParts.year],
+  ([day, month, year]) => {
+    const yearStr = String(year || '')
+    if (day && month && year && yearStr.length === 4) {
+      const yNum = parseInt(yearStr, 10)
+      const mNum = parseInt(month, 10)
+      const dNum = parseInt(day, 10)
+      const testDate = new Date(yNum, mNum - 1, dNum)
+      if (
+        testDate.getFullYear() === yNum &&
+        testDate.getMonth() === mNum - 1 &&
+        testDate.getDate() === dNum
+      ) {
+        form.dob = `${yearStr}-${month}-${day}`
+        return
+      }
+    }
+    form.dob = ''
+  }
+)
+
 async function submit() {
   formError.value = ''
-  if (!form.name || !form.phone || !form.dob || !form.usedLessThan6Months) {
+  if (!form.name || !form.phone || !form.usedLessThan6Months) {
     formError.value = 'Vui lòng điền đầy đủ các trường bắt buộc.'
     return
   }
+
+  if (!dobParts.day || !dobParts.month || !dobParts.year) {
+    formError.value = 'Vui lòng chọn ngày, tháng và nhập năm sinh.'
+    return
+  }
+
+  const yearStr = String(dobParts.year)
+  if (yearStr.length !== 4) {
+    formError.value = 'Vui lòng nhập năm sinh hợp lệ gồm 4 chữ số (ví dụ: 1980).'
+    return
+  }
+
+  const yNum = parseInt(yearStr, 10)
+  const currentYear = new Date().getFullYear()
+  if (isNaN(yNum) || yNum < 1900 || yNum > currentYear) {
+    formError.value = `Năm sinh phải nằm trong khoảng từ 1900 đến ${currentYear}.`
+    return
+  }
+
+  const mNum = parseInt(dobParts.month, 10)
+  const dNum = parseInt(dobParts.day, 10)
+  const testDate = new Date(yNum, mNum - 1, dNum)
+  if (
+    testDate.getFullYear() !== yNum ||
+    testDate.getMonth() !== mNum - 1 ||
+    testDate.getDate() !== dNum
+  ) {
+    formError.value = 'Ngày sinh đã chọn không hợp lệ (ví dụ: Ngày 31 Tháng 02 không tồn tại).'
+    return
+  }
+
+  if (!form.dob) {
+    formError.value = 'Ngày sinh không hợp lệ.'
+    return
+  }
+
   store.isLoading = true;
   try {
     await store.checkSim({
@@ -117,7 +184,50 @@ async function submit() {
           </div>
 
           <!-- Ngày giờ sinh -->
-          <BaseInput v-model="form.dob" label="Ngày sinh (Dương lịch)" type="date" required />
+          <div class="flex flex-col gap-1.5 sm:col-span-2">
+            <label class="text-sm font-medium text-slate-300">
+              Ngày sinh (Dương lịch) <span class="text-gold-400">*</span>
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              <!-- Chọn Ngày -->
+              <div class="relative w-full">
+                <select
+                  v-model="dobParts.day"
+                  class="w-full bg-slate-900/60 border border-slate-700/60 hover:border-gold-500/30 rounded-lg px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 transition-all duration-200 cursor-pointer text-xs sm:text-sm appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_8px_center] bg-[size:14px_14px] bg-no-repeat pr-6"
+                >
+                  <option value="" disabled class="bg-slate-900 text-slate-400">Ngày</option>
+                  <option v-for="d in days" :key="d" :value="d" class="bg-slate-900 text-slate-100">
+                    Ngày {{ d }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Chọn Tháng -->
+              <div class="relative w-full">
+                <select
+                  v-model="dobParts.month"
+                  class="w-full bg-slate-900/60 border border-slate-700/60 hover:border-gold-500/30 rounded-lg px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 transition-all duration-200 cursor-pointer text-xs sm:text-sm appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_8px_center] bg-[size:14px_14px] bg-no-repeat pr-6"
+                >
+                  <option value="" disabled class="bg-slate-900 text-slate-400">Tháng</option>
+                  <option v-for="m in months" :key="m" :value="m" class="bg-slate-900 text-slate-100">
+                    Tháng {{ m }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Nhập Năm -->
+              <input
+                type="number"
+                v-model="dobParts.year"
+                placeholder="Năm sinh"
+                min="1900"
+                max="2026"
+                pattern="[0-9]*"
+                inputmode="numeric"
+                class="w-full bg-slate-900/60 border border-slate-700/60 hover:border-gold-500/30 rounded-lg px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 transition-all duration-200 text-xs sm:text-sm"
+              />
+            </div>
+          </div>
           <BaseInput v-model="form.tob" label="Giờ sinh (không bắt buộc)" type="time" />
 
           <!-- Thông tin SIM -->
@@ -135,9 +245,7 @@ async function submit() {
           </div>
 
           <!-- Mã giới thiệu (optional) -->
-          <div class="sm:col-span-2">
-            <BaseInput v-model="form.referredByCode" label="Mã giới thiệu (không bắt buộc)" placeholder="VD: NVA88" />
-          </div>
+          <BaseInput v-model="form.referredByCode" label="Mã giới thiệu (không bắt buộc)" placeholder="VD: NVA88" />
         </div>
 
         <!-- Error -->
