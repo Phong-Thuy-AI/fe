@@ -19,6 +19,35 @@ const roomInfo = ref<ChatRoom | null>(null)
 const isClosed = computed(() => roomInfo.value?.status === 'closed')
 const is500k = computed(() => (roomInfo.value?.order as any)?.packageType === '500k')
 
+const userEmailInput = ref('')
+const isSavingEmail = ref(false)
+
+async function saveUserEmail() {
+  const email = userEmailInput.value.trim()
+  if (!email) {
+    alert('Vui lòng nhập địa chỉ email.')
+    return
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    alert('Địa chỉ email không đúng định dạng.')
+    return
+  }
+
+  isSavingEmail.value = true
+  try {
+    await api.post(`/chats/rooms/${roomId.value}/email`, { email })
+    alert('Đăng ký email thành công! Bản tin nhắc vận hằng ngày sẽ tự động kích hoạt và bắt đầu gửi sau khi dịch sư hoàn tất chốt SIM.')
+    if (roomInfo.value?.order?.user) {
+      roomInfo.value.order.user.email = email
+    }
+  } catch (err: any) {
+    alert(err?.response?.data?.error?.message ?? 'Lỗi khi lưu email.')
+  } finally {
+    isSavingEmail.value = false
+  }
+}
+
 async function scrollBottom() {
   await nextTick()
   if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
@@ -87,6 +116,30 @@ const messages = computed(() => chatStore.messages)
       </div>
       <BaseButton variant="ghost" size="sm" @click="router.push('/')">← Về trang chủ</BaseButton>
     </header>
+
+    <!-- Banner cập nhật email nếu khách chưa đăng ký email -->
+    <div v-if="roomInfo?.order?.user && !roomInfo.order.user.email && !isClosed" class="shrink-0 bg-yellow-950/40 border-b border-yellow-500/20 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2">
+        <span class="text-yellow-400 text-sm">📧</span>
+        <p class="text-xs text-yellow-300">Đăng ký Email để nhận tử vi nhắc vận hằng ngày miễn phí (tự động kích hoạt sau khi chốt SIM).</p>
+      </div>
+      <div class="flex items-center gap-2 self-end sm:self-auto">
+        <input
+          v-model="userEmailInput"
+          type="email"
+          placeholder="email@example.com"
+          class="bg-slate-900 border border-slate-700/60 rounded px-2.5 py-1 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-gold-500/50"
+        />
+        <BaseButton
+          size="sm"
+          class="!py-1 !px-3 text-xs"
+          :loading="isSavingEmail"
+          @click="saveUserEmail"
+        >
+          Đăng ký
+        </BaseButton>
+      </div>
+    </div>
 
     <!-- Banner 500k Zalo -->
     <div v-if="is500k && !isClosed" class="shrink-0 bg-purple-900/40 border-b border-purple-500/20 px-4 py-2 flex items-center justify-between">

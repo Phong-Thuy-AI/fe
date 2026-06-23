@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/order'
+import { api } from '@/services/api'
 import { formatCurrency } from '@/utils/helpers'
 import { ZALO_LINK } from '@/utils/constants'
 import BaseButton from '@/components/base/BaseButton.vue'

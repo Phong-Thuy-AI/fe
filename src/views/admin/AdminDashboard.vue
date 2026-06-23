@@ -33,6 +33,7 @@ const selectedRoomCarrier = computed(() => (selectedRoom.value?.order as any)?.c
 const selectedRoomTopic = computed(() => (selectedRoom.value?.order as any)?.consultationTopic ?? null)
 
 async function selectRoom(room: ChatRoom) {
+  isEditingEmail.value = false
   await chatStore.joinRoom(room.id)
   await nextTick()
   if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
@@ -80,6 +81,38 @@ async function logout() {
 const simLastDigits = ref('')
 const isConfirmingSim = ref(false)
 
+const isEditingEmail = ref(false)
+const adminEmailInput = ref('')
+
+function startEditEmail() {
+  adminEmailInput.value = selectedRoom.value?.order?.user?.email || ''
+  isEditingEmail.value = true
+}
+
+async function saveAdminEmail() {
+  if (!selectedRoom.value) return
+  const email = adminEmailInput.value.trim()
+  if (!email) {
+    alert('Vui lòng nhập email.')
+    return
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    alert('Email không đúng định dạng.')
+    return
+  }
+  try {
+    await api.post(`/chats/rooms/${selectedRoom.value.id}/email`, { email })
+    alert('Cập nhật email thành công!')
+    if (selectedRoom.value.order?.user) {
+      selectedRoom.value.order.user.email = email
+    }
+    isEditingEmail.value = false
+  } catch (err: any) {
+    alert(err?.response?.data?.error?.message ?? 'Lỗi khi cập nhật email.')
+  }
+}
+
 async function confirmSim() {
   if (!selectedRoom.value || !selectedRoom.value.order) return
   const digits = simLastDigits.value.trim()
@@ -87,6 +120,13 @@ async function confirmSim() {
     alert('Vui lòng nhập đúng 2 hoặc 3 chữ số đuôi SIM mới.')
     return
   }
+
+  // Cảnh báo nếu khách chưa có email
+  if (!selectedRoom.value.order.user?.email) {
+    const confirmProceed = confirm('⚠️ Khách hàng này chưa đăng ký Email để nhận tử vi nhắc vận hằng ngày. Bạn có chắc chắn muốn chốt SIM không?')
+    if (!confirmProceed) return
+  }
+
   isConfirmingSim.value = true
   try {
     const res = await api.post(`/admin/orders/${selectedRoom.value.order.id}/confirm-sim`, {
@@ -500,8 +540,26 @@ onUnmounted(() => chatStore.disconnect())
                   </span>
                   · {{ formatCurrency((selectedRoom.order as any)?.amount ?? 0) }}
                 </div>
-                <div v-if="selectedRoomCarrier" class="text-xs text-slate-500">📡 Nhà mạng: {{ selectedRoomCarrier }}</div>
-                <div v-if="selectedRoomTopic" class="text-xs text-slate-500">💡 Vấn đề: {{ selectedRoomTopic }}</div>
+                <div class="text-xs text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span>📧 Email:</span>
+                  <template v-if="isEditingEmail">
+                    <input
+                      v-model="adminEmailInput"
+                      type="email"
+                      placeholder="Nhập email..."
+                      class="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-gold-500"
+                    />
+                    <button @click="saveAdminEmail" class="text-green-400 hover:text-green-300 font-semibold text-[10px] py-0.5 px-1.5 rounded bg-green-500/10 border border-green-500/20">Lưu</button>
+                    <button @click="isEditingEmail = false" class="text-slate-400 hover:text-slate-300 font-semibold text-[10px] py-0.5 px-1.5 rounded bg-slate-800 border border-slate-700">Hủy</button>
+                  </template>
+                  <template v-else>
+                    <span v-if="selectedRoom.order?.user?.email" class="text-slate-300 font-medium">{{ selectedRoom.order.user.email }}</span>
+                    <span v-else class="text-yellow-400 font-semibold">⚠️ Chưa đăng ký</span>
+                    <button @click="startEditEmail" class="text-gold-300 hover:text-gold-200 text-[10px] underline ml-1">{{ selectedRoom.order?.user?.email ? 'Sửa' : 'Thêm' }}</button>
+                  </template>
+                </div>
+                <div v-if="selectedRoomCarrier" class="text-xs text-slate-500 mt-0.5">📡 Nhà mạng: {{ selectedRoomCarrier }}</div>
+                <div v-if="selectedRoomTopic" class="text-xs text-slate-500 mt-0.5">💡 Vấn đề: {{ selectedRoomTopic }}</div>
                 
                 <!-- Chốt SIM mới & Sinh mã giới thiệu -->
                 <div class="mt-2.5 pt-2.5 border-t border-slate-800/80 flex items-center gap-2 flex-wrap">
