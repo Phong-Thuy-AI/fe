@@ -159,6 +159,7 @@ const users = ref<any[]>([])
 const loadingUsers = ref(false)
 const userSearch = ref('')
 const extendingUserId = ref<number | null>(null)
+const resettingUserId = ref<number | null>(null)
 
 // Trạng thái Nhật ký Gửi Mail
 const emailLogs = ref<any[]>([])
@@ -241,6 +242,22 @@ async function extendUserSub(userId: number) {
     alert(e?.response?.data?.error?.message ?? 'Lỗi khi gia hạn.')
   } finally {
     extendingUserId.value = null
+  }
+}
+
+async function resetUserCheckCount(user: any) {
+  const confirmProceed = confirm(`Bạn có chắc chắn muốn reset lượt check của khách hàng "${user.name}" không? Thao tác này sẽ xóa các số điện thoại đã check trước đây của họ (ngoại trừ các số đã có đơn hàng/chốt SIM).`)
+  if (!confirmProceed) return
+
+  resettingUserId.value = user.id
+  try {
+    const res = await api.post<{ message: string; data: { newCheckCount: number } }>(`/admin/users/${user.id}/reset-checks`)
+    await fetchUsers()
+    alert(res.data.message || 'Đã reset lượt check thành công!')
+  } catch (e: any) {
+    alert(e?.response?.data?.error?.message ?? 'Lỗi khi reset lượt check.')
+  } finally {
+    resettingUserId.value = null
   }
 }
 
@@ -808,6 +825,7 @@ onUnmounted(() => chatStore.disconnect())
                 <th class="px-6 py-4">Ngày sinh (Dương lịch)</th>
                 <th class="px-6 py-4">Giờ sinh / Mệnh</th>
                 <th class="px-6 py-4">Hạn dùng gói tử vi</th>
+                <th class="px-6 py-4 text-center">Lượt check</th>
                 <th class="px-6 py-4 text-right">Hành động</th>
               </tr>
             </thead>
@@ -823,7 +841,7 @@ onUnmounted(() => chatStore.disconnect())
                   <div>Giờ: {{ user.tob }}</div>
                   <div class="text-xs text-gold-500 mt-0.5">Mệnh: {{ user.menh }}</div>
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-6 py-4 text-slate-300">
                   <span v-if="isSubscriberActive(user.horoscopeExpiresAt)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
                     Hạn: {{ formatDateTime(user.horoscopeExpiresAt) }}
                   </span>
@@ -831,16 +849,34 @@ onUnmounted(() => chatStore.disconnect())
                     {{ user.horoscopeExpiresAt ? 'Hết hạn (' + formatDateTime(user.horoscopeExpiresAt) + ')' : 'Chưa đăng ký' }}
                   </span>
                 </td>
+                <td class="px-6 py-4 text-center text-slate-300">
+                  <div class="inline-flex items-center gap-1">
+                    <span class="font-bold text-slate-200">{{ user.checkCount ?? 0 }}</span>
+                    <span class="text-xs text-slate-500">/ 5</span>
+                  </div>
+                </td>
                 <td class="px-6 py-4 text-right">
-                  <BaseButton
-                    size="sm"
-                    variant="ghost"
-                    class="!py-1 !px-2.5 text-xs"
-                    :loading="extendingUserId === user.id"
-                    @click="extendUserSub(user.id)"
-                  >
-                    +30 Ngày
-                  </BaseButton>
+                  <div class="flex items-center justify-end gap-2">
+                    <BaseButton
+                      size="sm"
+                      variant="ghost"
+                      class="!py-1 !px-2.5 text-xs"
+                      :loading="extendingUserId === user.id"
+                      @click="extendUserSub(user.id)"
+                    >
+                      +30 Ngày
+                    </BaseButton>
+                    <BaseButton
+                      v-if="user.checkCount && user.checkCount > 0"
+                      size="sm"
+                      variant="danger"
+                      class="!py-1 !px-2.5 text-xs bg-red-950/20 text-red-400 hover:bg-red-900/30 border border-red-500/20"
+                      :loading="resettingUserId === user.id"
+                      @click="resetUserCheckCount(user)"
+                    >
+                      Reset check
+                    </BaseButton>
+                  </div>
                 </td>
               </tr>
             </tbody>
