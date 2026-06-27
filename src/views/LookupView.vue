@@ -68,6 +68,16 @@ const ratingColor: Record<string, string> = {
   'Không tốt': 'text-red-400'
 }
 
+function getClassificationColor(cls: string | undefined): string {
+  if (!cls) return 'text-slate-300'
+  const c = cls.trim().toUpperCase()
+  if (c.includes('ĐẠI CÁT')) return 'text-emerald-400 font-extrabold'
+  if (c.includes('ĐẠI HUNG')) return 'text-red-500 font-extrabold'
+  if (c.includes('CÁT')) return 'text-green-400 font-bold'
+  if (c.includes('HUNG')) return 'text-red-400 font-bold'
+  return 'text-slate-300'
+}
+
 const userObj = computed(() => result.value?.user)
 const resultObj = computed(() => parsedCheckResult())
 
@@ -541,7 +551,7 @@ const formattedAiAnalysis = computed(() => {
                     </div>
                   </div>
                   
-                  <p class="text-xs text-slate-400 leading-relaxed">{{ resultObj.nguHanh.details }}</p>
+                  <p class="text-xs text-slate-400 leading-relaxed whitespace-pre-line">{{ resultObj.nguHanh.details }}</p>
                 </div>
 
                 <!-- AI Deep Dive Section (Luận Phong thủy) -->
@@ -577,15 +587,21 @@ const formattedAiAnalysis = computed(() => {
 
                   <div class="grid grid-cols-3 gap-2 text-center text-xs">
                     <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
-                      <div class="text-xs font-bold text-slate-300 leading-tight truncate">{{ resultObj.vanQue.tienVanQue }}</div>
+                      <div class="text-[10px] font-bold leading-tight uppercase" :class="getClassificationColor(parsedTien?.classification)">
+                        {{ parsedTien?.classification || 'CÁT' }}
+                      </div>
                       <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Tiền vận</div>
                     </div>
                     <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
-                      <div class="text-xs font-bold text-slate-300 leading-tight truncate">{{ resultObj.vanQue.trungVanQue }}</div>
+                      <div class="text-[10px] font-bold leading-tight uppercase" :class="getClassificationColor(parsedTrung?.classification)">
+                        {{ parsedTrung?.classification || 'HUNG' }}
+                      </div>
                       <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Trung vận</div>
                     </div>
                     <div class="bg-slate-900/60 rounded-xl p-2 border border-slate-800/50">
-                      <div class="text-xs font-bold text-slate-300 leading-tight truncate">{{ resultObj.vanQue.hauVanQue }}</div>
+                      <div class="text-[10px] font-bold leading-tight uppercase" :class="getClassificationColor(parsedHau?.classification)">
+                        {{ parsedHau?.classification || 'ĐẠI CÁT' }}
+                      </div>
                       <div class="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">Hậu vận</div>
                     </div>
                   </div>
