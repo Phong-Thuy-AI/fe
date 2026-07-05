@@ -166,7 +166,7 @@ async function submit() {
             </video>
           </div>
           <p class="text-gold-300 font-bold tracking-wide animate-pulse text-sm sm:text-base text-center">
-            🔮 Đang kết nối dịch lý Bát Tự & Luận giải phong thủy SIM...
+            Số không tự cát, cũng không tự hung. <br/> Số hợp thì khí thuận, khí thuận thì vận thông. <br/> Số chỉ là trợ duyên, người mới là gốc
           </p>
           <p class="text-xs text-slate-500 text-center max-w-xs leading-relaxed">
             Tiến trình luận giải chuyên sâu có thể mất khoảng 20 - 40 giây. Vui lòng không đóng trình duyệt.

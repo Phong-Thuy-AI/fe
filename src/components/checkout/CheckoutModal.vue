@@ -24,7 +24,13 @@ const countdown = ref(600)
 
 const order = computed(() => orderStore.currentOrder)
 const qrUrl = computed(() => orderStore.qrUrl)
-const is200k = computed(() => order.value?.packageType === '200k')
+
+const packageLabel = computed(() => {
+  if (order.value?.packageType === '200k') return '💬 Đổi SIM Phong Thủy'
+  if (order.value?.packageType === '500k') return '🌟 Tư Vấn Chuyên Sâu'
+  if (order.value?.packageType === '365k') return '📅 Gia Hạn Tử Vi (1 Năm)'
+  return ''
+})
 
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
@@ -91,11 +97,13 @@ onUnmounted(() => {
         <div class="flex justify-center">
           <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="h-24 w-auto object-contain animate-bounce" />
         </div>
-        <h3 class="text-2xl font-bold gold-gradient-text">Thanh Toán Thành Công!</h3>
-        <p class="text-slate-300 text-sm">Đang chuyển đến phòng tư vấn...</p>
+        <h3 class="text-2xl font-bold gold-gradient-text">Thanh toán thành công!</h3>
+        <p class="text-slate-300 text-sm">
+          {{ order?.packageType === '365k' ? 'Cảm ơn bạn! Tài khoản đã được gia hạn thêm 1 năm sử dụng.' : 'Đang chuyển đến phòng tư vấn...' }}
+        </p>
 
         <!-- Gói 500k: nhắc Zalo -->
-        <div v-if="!is200k" class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 text-sm space-y-2">
+        <div v-if="order?.packageType === '500k'" class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 text-sm space-y-2">
           <p class="text-purple-300">🌟 Gói 500k: Dịch sư sẽ liên hệ qua Zalo sau khi chat.</p>
           <a :href="ZALO_LINK" target="_blank">
             <BaseButton size="sm" variant="ghost" class="!border-purple-500/50 !text-purple-300 w-full">
@@ -105,10 +113,14 @@ onUnmounted(() => {
         </div>
 
         <!-- Referral code sau khi thanh toán -->
-        <div class="bg-gold-500/10 border border-gold-500/20 rounded-xl p-3.5 text-xs text-slate-300 leading-relaxed text-left">
+        <div v-if="order?.packageType !== '365k'" class="bg-gold-500/10 border border-gold-500/20 rounded-xl p-3.5 text-xs text-slate-300 leading-relaxed text-left">
           <p class="text-gold-400 font-bold mb-1 flex items-center gap-1"><span>🎁</span> Đặc quyền quà tặng:</p>
           Mã giới thiệu & đặc quyền tặng 1 tháng tử vi hằng ngày miễn phí sẽ được kích hoạt và gửi trực tiếp trong phòng chat sau khi chốt SIM mới thành công.
         </div>
+
+        <BaseButton v-if="order?.packageType === '365k'" class="w-full mt-4" @click="emit('close')">
+          Đóng cửa sổ
+        </BaseButton>
       </div>
 
       <!-- Hết hạn -->
@@ -138,7 +150,7 @@ onUnmounted(() => {
         <div class="bg-slate-900/60 rounded-xl p-4 space-y-2 text-sm mb-4">
           <div class="flex justify-between">
             <span class="text-slate-400">Gói:</span>
-            <span class="font-medium text-slate-200">{{ is200k ? '💬 Đổi SIM Phong Thủy' : '🌟 Tư Vấn Chuyên Sâu' }}</span>
+            <span class="font-medium text-slate-200">{{ packageLabel }}</span>
           </div>
           <div v-if="props.carrier" class="flex justify-between">
             <span class="text-slate-400">Nhà mạng:</span>
