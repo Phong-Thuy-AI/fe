@@ -139,7 +139,7 @@ function handleCheckoutClose() {
               <p class="text-slate-500 text-[11px]">Gia hạn sử dụng trong 1 năm tiếp theo</p>
             </div>
             <div class="text-right">
-              <span class="text-gold-400 font-black text-lg">365.000 đ</span>
+              <span class="text-gold-400 font-black text-lg">{{ formatCurrency(365000) }}</span>
               <p class="text-[10px] text-slate-500 mt-0.5">~1.000 đ / ngày</p>
             </div>
           </div>

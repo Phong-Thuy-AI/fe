@@ -24,7 +24,6 @@ const countdown = ref(600)
 
 const order = computed(() => orderStore.currentOrder)
 const qrUrl = computed(() => orderStore.qrUrl)
-const is200k = computed(() => order.value?.packageType === '200k')
 
 const packageLabel = computed(() => {
   if (order.value?.packageType === '200k') return '💬 Đổi SIM Phong Thủy'

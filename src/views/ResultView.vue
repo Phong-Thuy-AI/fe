@@ -820,7 +820,6 @@ const formattedAiAnalysis = computed(() => {
                         📢 Để mở khóa 1 tháng dùng thử miễn phí, bạn vui lòng chia sẻ trang web ủng hộ chúng tôi lên Facebook cá nhân:
                       </p>
                       <BaseButton
-                        variant="primary"
                         full-width
                         class="!bg-gradient-to-r !from-blue-600 !to-blue-500 hover:!from-blue-500 hover:!to-blue-400 !text-white font-bold flex items-center justify-center gap-1.5"
                         @click="handleShareAndUnlock"
@@ -840,7 +839,6 @@ const formattedAiAnalysis = computed(() => {
                         <span>✅</span> Đã mở khóa đặc quyền dùng thử!
                       </p>
                       <BaseButton
-                        variant="primary"
                         full-width
                         class="!bg-gradient-to-r !from-emerald-600 !to-emerald-500 hover:!from-emerald-500 hover:!to-emerald-400 !text-slate-950 font-bold"
                         :loading="trialLoading"

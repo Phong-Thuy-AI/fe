@@ -9,6 +9,8 @@ export interface User {
   focusArea: string | null
   referralCode: string | null
   referredByCode: string | null
+  trialUsed?: boolean
+  horoscopeExpiresAt?: string | null
 }
 
 export interface NguHanhResult {
@@ -48,7 +50,7 @@ export interface FengshuiCheckResponse {
 export interface Order {
   id: number
   userId: number
-  packageType: '200k' | '500k'
+  packageType: '200k' | '500k' | '365k'
   amount: number
   paymentCode: string
   status: 'pending' | 'paid' | 'expired' | 'completed'
@@ -84,7 +86,7 @@ export interface ApiResponse<T> {
 
 export interface LookupOrderItem {
   id: number
-  packageType: '200k' | '500k'
+  packageType: '200k' | '500k' | '365k'
   status: 'paid' | 'completed'
   createdAt: string
   carrier: string | null
