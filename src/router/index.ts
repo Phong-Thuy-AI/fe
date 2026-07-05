@@ -16,6 +16,7 @@ const router = createRouter({
     { path: '/chat/:roomId', name: 'chat', component: ChatView },
     { path: '/lookup', name: 'lookup', component: LookupView },
     { path: '/login', name: 'admin-login', component: AdminLogin },
+    { path: '/renew', name: 'renew', component: () => import('@/views/RenewView.vue') },
     {
       path: '/admin',
       name: 'admin',

@@ -15,7 +15,7 @@ export const useOrderStore = defineStore('order', () => {
   const isCreating = ref(false)
   let pollTimer: ReturnType<typeof setTimeout> | null = null
 
-  async function createOrder(packageType: '200k' | '500k', extra?: OrderExtra) {
+  async function createOrder(packageType: '200k' | '500k' | '365k', extra?: OrderExtra) {
     isCreating.value = true
     try {
       const res = await api.post<{ data: { order: Order; qrUrl: string } }>('/orders', {

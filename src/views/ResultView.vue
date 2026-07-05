@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFengshuiStore } from '@/stores/fengshui'
 import { useOrderStore } from '@/stores/order'
+import { api } from '@/services/api'
 import { formatCurrency, scoreLabel, getVậnTreeIcon, getVậnCardClass, getVậnGlowClass, getClassificationClass } from '@/utils/helpers'
 import { ZALO_LINK, PRICE_200K, PRICE_500K } from '@/utils/constants'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -131,6 +132,64 @@ async function selectPackage(pkg: '200k' | '500k') {
       return
     }
     checkoutError.value = err?.response?.data?.error?.message ?? 'Không thể tạo đơn hàng. Vui lòng thử lại.'
+  }
+}
+
+const trialEmail = ref('')
+const trialLoading = ref(false)
+const trialSuccess = ref(false)
+const trialError = ref('')
+
+const hasClickedShare = ref(false)
+const shareTimerActive = ref(false)
+const shareCountdown = ref(3)
+
+function handleShareAndUnlock() {
+  const referralCode = user.value?.referralCode || ''
+  const shareUrl = `https://www.dinhanphongthuyso.com/?ref=${referralCode}`
+  const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
+  
+  // Mở tab chia sẻ Facebook
+  window.open(facebookShareUrl, '_blank')
+  
+  // Bắt đầu đếm ngược mở khóa
+  shareTimerActive.value = true
+  shareCountdown.value = 3
+  
+  const timer = setInterval(() => {
+    shareCountdown.value--
+    if (shareCountdown.value <= 0) {
+      clearInterval(timer)
+      shareTimerActive.value = false
+      hasClickedShare.value = true
+    }
+  }, 1000)
+}
+
+async function handleSubscribeTrial() {
+  trialError.value = ''
+  trialLoading.value = true
+  try {
+    const emailToSubmit = user.value?.email || trialEmail.value.trim()
+    if (!emailToSubmit) {
+      trialError.value = 'Vui lòng nhập email để đăng ký.'
+      trialLoading.value = false
+      return
+    }
+    const res = await api.post('/auth/user/subscribe-trial', { email: emailToSubmit })
+    
+    // Cập nhật thông tin user trong store
+    if (fengshuiStore.checkResponse?.user) {
+      fengshuiStore.checkResponse.user.email = emailToSubmit
+      fengshuiStore.checkResponse.user.trialUsed = true
+      fengshuiStore.checkResponse.user.horoscopeExpiresAt = res.data.data.horoscopeExpiresAt
+    }
+    
+    trialSuccess.value = true
+  } catch (err: any) {
+    trialError.value = err?.response?.data?.error?.message ?? 'Đăng ký dùng thử thất bại. Vui lòng thử lại.'
+  } finally {
+    trialLoading.value = false
   }
 }
 
@@ -282,7 +341,7 @@ const formattedAiAnalysis = computed(() => {
 
     <!-- Header -->
     <header class="sticky top-0 z-40 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md">
-      <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <router-link to="/" class="flex items-center gap-2 hover:opacity-85 transition-opacity">
           <div class="halo-effect">
             <img src="/image-bg.png" alt="Di Nhân Phong Thủy Số" class="w-8 h-8 rounded-full object-cover relative z-10" />
@@ -293,7 +352,7 @@ const formattedAiAnalysis = computed(() => {
       </div>
     </header>
 
-    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-10 space-y-8">
       <!-- Tiêu đề -->
       <div class="text-center space-y-1">
         <p class="text-slate-400 text-sm">Kết quả luận giải cho <strong class="text-slate-200">{{ user.name }}</strong> · Mệnh <strong class="text-gold-400">{{ result.menh }}</strong></p>
@@ -646,7 +705,7 @@ const formattedAiAnalysis = computed(() => {
               playsinline
               class="w-full object-cover aspect-video"
             >
-              <source src="/result.mp4" type="video/mp4" />
+              <source src="/loading-new.mp4" type="video/mp4" />
             </video>
           </div>
 
@@ -702,8 +761,100 @@ const formattedAiAnalysis = computed(() => {
           <div v-if="selectedTopics.length > 0" class="space-y-5 pt-6 border-t border-slate-800/80 relative z-10">
             <p v-if="checkoutError" class="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-center font-medium">{{ checkoutError }}</p>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
-              <!-- Gói 200k -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-6xl mx-auto">
+              <!-- Gói Dùng Thử 1 Tháng Free (Hiện luôn cho cả hai trường hợp) -->
+              <div class="border border-emerald-500/20 rounded-2xl p-6 space-y-4 hover:border-emerald-500/50 transition-all duration-300 bg-slate-950/40 backdrop-blur-md flex flex-col justify-between shadow-md">
+                <div class="space-y-4">
+                  <div class="border-b border-slate-800/60 pb-3 flex justify-between items-start">
+                    <div>
+                      <h4 class="font-black text-sm sm:text-base text-emerald-300 flex items-center gap-1.5">
+                        <span>📅</span> Đăng Ký Nhận Tử Vi
+                      </h4>
+                      <p class="text-emerald-400 font-extrabold text-xs sm:text-sm mt-0.5">Nhận tin nhắc vận hằng ngày</p>
+                    </div>
+                    <div class="text-right flex flex-col items-end">
+                      <span class="text-emerald-400 font-black text-sm uppercase px-2 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/25">Miễn phí</span>
+                      <span class="text-[11px] text-slate-500 font-medium mt-1">Dùng thử 1 tháng</span>
+                    </div>
+                  </div>
+                  
+                  <ul class="text-xs text-slate-400 space-y-2 text-left">
+                    <li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✔</span> Nhận tử vi cát hung hàng ngày dựa trên bản mệnh cá nhân</li>
+                    <li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✔</span> Ghi nhận ngày Hoàng đạo, trực ngày và giờ tốt để khởi sự</li>
+                    <li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✔</span> Nhắc nhở khía cạnh quan tâm: <span class="text-emerald-300 font-bold">"{{ selectedTopics.join(', ') }}"</span></li>
+                    <li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✔</span> Gửi trực tiếp bản tin vào Email của bạn vào mỗi buổi sáng</li>
+                    <li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✔</span> Gia hạn tự động qua link email 365k / 1 năm khi hết hạn</li>
+                  </ul>
+                  
+                  <!-- Form đăng ký Email -->
+                  <div class="space-y-2.5 pt-3 border-t border-slate-900/60 text-left">
+                    <div v-if="user?.email" class="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/80">
+                      📧 Email nhận tử vi: <strong class="text-emerald-400 font-bold select-all">{{ user.email }}</strong>
+                    </div>
+                    <div v-else class="space-y-1.5">
+                      <label class="text-xs font-semibold text-slate-300 block">
+                        📧 Nhập địa chỉ Email nhận tử vi <span class="text-red-400">*</span>
+                      </label>
+                      <input
+                        v-model="trialEmail"
+                        type="email"
+                        placeholder="ten-cua-ban@gmail.com"
+                        class="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500/50 focus:outline-none rounded-xl px-3 py-2 text-xs text-slate-200"
+                        :disabled="trialLoading || trialSuccess"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="space-y-2 mt-5">
+                  <div v-if="trialSuccess" class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs py-2.5 px-3 rounded-xl text-center font-medium">
+                    🎉 Kích hoạt dùng thử 1 tháng thành công! Hãy kiểm tra hòm thư Email hàng ngày.
+                  </div>
+                  <div v-else-if="user?.trialUsed" class="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs py-2.5 px-3 rounded-xl text-center font-medium">
+                    ⚠️ Bạn đã sử dụng lượt đăng ký dùng thử miễn phí trước đó rồi.
+                  </div>
+                  <div v-else class="space-y-2">
+                    <!-- Bước 1: Yêu cầu chia sẻ Facebook -->
+                    <div v-if="!hasClickedShare" class="space-y-2">
+                      <p class="text-[11px] text-slate-400 text-left leading-relaxed">
+                        📢 Để mở khóa 1 tháng dùng thử miễn phí, bạn vui lòng chia sẻ trang web ủng hộ chúng tôi lên Facebook cá nhân:
+                      </p>
+                      <BaseButton
+                        variant="primary"
+                        full-width
+                        class="!bg-gradient-to-r !from-blue-600 !to-blue-500 hover:!from-blue-500 hover:!to-blue-400 !text-white font-bold flex items-center justify-center gap-1.5"
+                        @click="handleShareAndUnlock"
+                      >
+                        <span>🔵</span> Chia sẻ lên Facebook
+                      </BaseButton>
+                    </div>
+
+                    <!-- Bước 2: Hiển thị đếm ngược mở khóa -->
+                    <div v-else-if="shareTimerActive" class="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs py-2.5 px-3 rounded-xl text-center font-medium animate-pulse">
+                      ⏳ Đang xác thực trạng thái chia sẻ ({{ shareCountdown }}s)...
+                    </div>
+
+                    <!-- Bước 3: Đã chia sẻ, mở khóa nút kích hoạt dùng thử -->
+                    <div v-else class="space-y-2">
+                      <p class="text-[11px] text-emerald-400 font-medium text-center flex items-center justify-center gap-1">
+                        <span>✅</span> Đã mở khóa đặc quyền dùng thử!
+                      </p>
+                      <BaseButton
+                        variant="primary"
+                        full-width
+                        class="!bg-gradient-to-r !from-emerald-600 !to-emerald-500 hover:!from-emerald-500 hover:!to-emerald-400 !text-slate-950 font-bold"
+                        :loading="trialLoading"
+                        @click="handleSubscribeTrial"
+                      >
+                        Kích hoạt dùng thử miễn phí
+                      </BaseButton>
+                    </div>
+                  </div>
+                  <p v-if="trialError" class="text-[11px] text-red-400 text-center mt-1">{{ trialError }}</p>
+                </div>
+              </div>
+
+              <!-- Gói 200k (Hiện luôn cho cả hai trường hợp) -->
               <div class="border border-gold-500/20 rounded-2xl p-6 space-y-4 hover:border-gold-500/50 transition-all duration-300 bg-slate-950/40 backdrop-blur-md flex flex-col justify-between shadow-md">
                 <div class="space-y-4">
                   <div class="border-b border-slate-800/60 pb-3 flex justify-between items-start">
@@ -718,7 +869,7 @@ const formattedAiAnalysis = computed(() => {
                     </div>
                   </div>
                   
-                  <ul class="text-xs text-slate-400 space-y-2">
+                  <ul class="text-xs text-slate-400 space-y-2 text-left">
                     <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Luận giải chọn SIM mới (chưa gồm tiền mua SIM)</li>
                     <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Giá SIM đề xuất dao động từ 2 – 3 triệu trở xuống</li>
                     <li class="flex items-start gap-1.5"><span class="text-gold-500 font-bold">✔</span> Tư vấn chuyên biệt để cải thiện khía cạnh <span class="text-gold-300 font-bold">"{{ selectedTopics.join(', ') }}"</span></li>
