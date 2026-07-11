@@ -9,15 +9,33 @@ import { formatCurrency, formatDateTime } from '@/utils/helpers'
 import type { ChatRoom } from '@/types'
 import BaseButton from '@/components/base/BaseButton.vue'
 import GlassCard from '@/components/base/GlassCard.vue'
+import AdminReports from '@/views/admin/AdminReports.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
 
-type Tab = 'chat' | 'orders' | 'users' | 'emails' | 'config'
+type Tab = 'reports' | 'chat' | 'orders' | 'users' | 'emails' | 'config'
 const activeTab = ref<Tab>('chat')
+const mobileMenuOpen = ref(false)
 const newMessage = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
+
+const tabItems: Array<{ key: Tab; label: string; shortLabel: string }> = [
+  { key: 'reports', label: 'Báo cáo', shortLabel: 'Báo cáo' },
+  { key: 'chat', label: 'Phòng Chat', shortLabel: 'Chat' },
+  { key: 'orders', label: 'Đơn Hàng', shortLabel: 'Đơn' },
+  { key: 'users', label: 'Khách Hàng', shortLabel: 'Khách' },
+  { key: 'emails', label: 'Nhật ký Mail', shortLabel: 'Mail' },
+  { key: 'config', label: 'Cấu Hình', shortLabel: 'Cài đặt' }
+]
+
+const activeTabLabel = computed(() => tabItems.find(item => item.key === activeTab.value)?.label || 'Menu')
+
+function setActiveTab(tab: Tab) {
+  activeTab.value = tab
+  mobileMenuOpen.value = false
+}
 
 const configSaving = ref(false)
 const configMsg = ref('')
@@ -435,14 +453,38 @@ onUnmounted(() => chatStore.disconnect())
 <template>
   <div class="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
     <!-- Top bar -->
-    <header class="shrink-0 border-b border-gold-500/10 bg-slate-900/70 backdrop-blur-md px-3 sm:px-4 h-14 flex items-center justify-between">
-      <div class="items-center gap-1.5 sm:gap-3 hidden sm:flex">
-        <img src="/image-bg.png" alt="Logo" class="w-6 h-6 rounded-full object-cover object-top border border-gold-500/30 hidden sm:inline" />
+    <header class="relative z-20 shrink-0 border-b border-gold-500/10 bg-slate-900/80 backdrop-blur-md px-3 sm:px-4 min-h-14 py-2 flex items-center justify-between gap-3">
+      <div class="items-center gap-1.5 sm:gap-3 flex min-w-0">
+        <img src="/image-bg.png" alt="Logo" class="w-6 h-6 rounded-full object-cover object-top border border-gold-500/30 shrink-0" />
         <span class="font-bold gold-gradient-text text-xs sm:text-sm hidden sm:inline">Admin Dashboard</span>
         <span class="font-bold gold-gradient-text text-xs sm:hidden">Admin</span>
         <span class="text-[10px] sm:text-xs text-slate-500 hidden md:inline">{{ authStore.adminUsername }}</span>
       </div>
-      <div class="flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full whitespace-nowrap">
+      <div class="md:hidden flex items-center gap-2 shrink-0">
+        <button
+          class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 min-w-[128px]"
+          @click="mobileMenuOpen = !mobileMenuOpen"
+        >
+          {{ activeTabLabel }}
+        </button>
+      </div>
+
+      <div v-if="mobileMenuOpen" class="absolute left-3 right-3 top-[calc(100%+8px)] md:hidden rounded-xl border border-slate-800 bg-slate-950/98 shadow-2xl shadow-slate-950/60 overflow-hidden">
+        <button
+          v-for="item in tabItems"
+          :key="item.key"
+          @click="setActiveTab(item.key)"
+          :class="['w-full text-left px-4 py-3 text-sm transition', activeTab===item.key ? 'bg-gold-500/15 text-gold-300' : 'text-slate-300 hover:bg-slate-900']"
+        >
+          {{ item.label }}
+        </button>
+        <button class="w-full text-left px-4 py-3 text-sm text-red-300 hover:bg-red-950/20 border-t border-slate-800" @click="logout">Đăng xuất</button>
+      </div>
+
+      <div class="hidden md:flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full whitespace-nowrap">
+        <button @click="setActiveTab('reports')" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='reports' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          Báo cáo
+        </button>
         <button @click="activeTab = 'chat'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='chat' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
           <span class="hidden sm:inline">💬 Phòng Chat</span>
           <span class="inline sm:hidden">💬 Chat</span>
@@ -466,6 +508,9 @@ onUnmounted(() => chatStore.disconnect())
         <BaseButton variant="ghost" size="sm" class="!px-2 sm:!px-4 !py-1 text-[11px] sm:text-xs shrink-0" @click="logout">Đăng xuất</BaseButton>
       </div>
     </header>
+
+    <!-- Reports Tab -->
+    <AdminReports v-if="activeTab === 'reports'" />
 
     <!-- Chat Tab -->
     <div v-if="activeTab === 'chat'" class="flex flex-1 overflow-hidden">
