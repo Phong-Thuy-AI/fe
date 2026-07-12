@@ -6,7 +6,7 @@ export const MENH_LIST = ['Kim', 'Mộc', 'Thủy', 'Hỏa', 'Thổ'] as const
 export const FOCUS_AREAS = [
   'Gia đạo',
   'Tình duyên',
-  'Công việc',
+  'Sức khỏe',
   'Công danh',
   'Sự nghiệp',
 ] as const

@@ -7,6 +7,31 @@ import ChatView from '@/views/ChatView.vue'
 import LookupView from '@/views/LookupView.vue'
 import AdminLogin from '@/views/admin/AdminLogin.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
+import { api } from '@/services/api'
+
+function getClientId(storage: Storage, key: string): string {
+  const existing = storage.getItem(key)
+  if (existing) return existing
+  const fallback = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const value = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : fallback
+  storage.setItem(key, value)
+  return value
+}
+
+function trackPublicPageView(path: string) {
+  if (path.startsWith('/admin') || path.startsWith('/login')) return
+
+  const visitorId = getClientId(localStorage, 'analyticsVisitorId')
+  const sessionId = getClientId(sessionStorage, 'analyticsSessionId')
+
+  api.post('/analytics/page-view', {
+    visitorId,
+    sessionId,
+    path,
+    referrer: document.referrer || null,
+    userAgent: navigator.userAgent
+  }).catch(() => null)
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -41,6 +66,10 @@ router.beforeEach((to) => {
   }
 
   return true
+})
+
+router.afterEach((to) => {
+  trackPublicPageView(to.fullPath)
 })
 
 export default router

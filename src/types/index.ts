@@ -20,6 +20,17 @@ export interface NguHanhResult {
   c_khac: number
   rating: string
   details: string
+  deepInsight?: {
+    mainLifeElement: string
+    groups: Array<{
+      key: string
+      label: string
+      score: number
+      maxScore: 20
+      level: string
+      summary: string
+    }>
+  }
 }
 
 export interface VanQueResult {

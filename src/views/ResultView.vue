@@ -68,7 +68,7 @@ const scoreInnerPulseClass = computed(() => {
 })
 
 const CARRIERS = ['Viettel', 'Mobifone', 'Vinaphone', 'Gmobile', 'Reddi', 'Không yêu cầu']
-const TOPICS = ['Gia đạo', 'Tình duyên', 'Công việc', 'Công danh', 'Sự nghiệp']
+const TOPICS = ['Gia đạo', 'Tình duyên', 'Sức khỏe', 'Công danh', 'Sự nghiệp']
 
 const isHungGroup = computed(() => {
   if (!result.value) return false
@@ -199,6 +199,22 @@ const ratingColor: Record<string, string> = {
   'Cát': 'text-gold-400', 'Ổn nhưng điểm thấp': 'text-yellow-400',
   'Khuyên đổi SIM': 'text-orange-400', 'Khuyên bỏ SIM': 'text-red-500',
   'Không tốt': 'text-red-400'
+}
+
+const deepInsight = computed(() => result.value?.nguHanh.deepInsight ?? null)
+
+function getDeepInsightLevelClass(level: string): string {
+  if (level === 'Tốt') return 'text-emerald-400'
+  if (level === 'Khá') return 'text-gold-400'
+  if (level === 'Trung bình') return 'text-yellow-400'
+  return 'text-red-400'
+}
+
+function getDeepInsightBarClass(level: string): string {
+  if (level === 'Tốt') return 'from-emerald-500 to-emerald-300'
+  if (level === 'Khá') return 'from-gold-600 to-gold-300'
+  if (level === 'Trung bình') return 'from-yellow-600 to-yellow-300'
+  return 'from-red-600 to-red-400'
 }
 
 function getClassificationColor(cls: string | undefined): string {
@@ -592,12 +608,49 @@ const formattedAiAnalysis = computed(() => {
               <p class="text-xs text-slate-400 leading-relaxed whitespace-pre-line">{{ result.nguHanh.details }}</p>
             </div>
 
-            <!-- AI Deep Dive Section (Luận Phong thủy) -->
-            <div v-if="aiSections.phongThuy" class="mt-4 pt-4 border-t border-slate-800">
+            <!-- Chiêm nghiệm chuyên sâu theo Ngũ Hành SIM -->
+            <div class="mt-4 pt-4 border-t border-slate-800">
               <h5 class="text-xs font-bold text-gold-400 flex items-center gap-1 mb-1.5">
                 <span>🔮</span> Chiêm nghiệm chuyên sâu:
               </h5>
-              <div class="text-xs text-slate-300 leading-relaxed" v-html="formatMarkdownInline(aiSections.phongThuy)"></div>
+              <div v-if="deepInsight" class="space-y-3">
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  Mệnh ngày tháng là <strong class="text-gold-300 font-semibold">mệnh chính cuộc đời</strong>: {{ deepInsight.mainLifeElement }}.
+                  Điểm dưới đây giúp bạn chọn đúng nhóm cải vận phù hợp, không cộng vào tổng điểm SIM.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div
+                    v-for="group in deepInsight.groups"
+                    :key="group.key"
+                    class="bg-slate-950/45 border border-slate-800/70 rounded-xl p-3 space-y-2"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="text-xs font-bold text-slate-200 leading-snug">{{ group.label }}</p>
+                        <p class="text-[10px] font-bold uppercase mt-0.5" :class="getDeepInsightLevelClass(group.level)">
+                          {{ group.level }}
+                        </p>
+                      </div>
+                      <div class="shrink-0 text-right">
+                        <span class="text-base font-black text-gold-300">{{ group.score }}</span>
+                        <span class="text-[10px] text-slate-500">/{{ group.maxScore }}</span>
+                      </div>
+                    </div>
+                    <div class="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
+                        :class="getDeepInsightBarClass(group.level)"
+                        :style="{ width: `${Math.min(100, (group.score / group.maxScore) * 100)}%` }"
+                      ></div>
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">{{ group.summary }}</p>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="text-xs text-slate-500 italic leading-relaxed">
+                Kết quả cũ chưa có dữ liệu chiêm nghiệm chuyên sâu theo nhóm. Vui lòng kiểm tra lại SIM để cập nhật phần này.
+              </p>
             </div>
           </GlassCard>
         </div>
