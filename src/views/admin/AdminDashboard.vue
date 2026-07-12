@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -863,13 +863,14 @@ onUnmounted(() => chatStore.disconnect())
         </div>
 
         <div v-else class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
-          <table class="w-full text-left border-collapse min-w-[800px]">
+          <table class="w-full text-left border-collapse min-w-[920px]">
             <thead>
               <tr class="border-b border-slate-800 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 <th class="px-6 py-4">Khách hàng</th>
                 <th class="px-6 py-4">Ngày sinh (Dương lịch)</th>
                 <th class="px-6 py-4">Giờ sinh / Mệnh</th>
                 <th class="px-6 py-4">Hạn dùng gói tử vi</th>
+                <th class="px-6 py-4">Xem mới nhất</th>
                 <th class="px-6 py-4 text-center">Lượt check</th>
                 <th class="px-6 py-4 text-right">Hành động</th>
               </tr>
@@ -893,6 +894,12 @@ onUnmounted(() => chatStore.disconnect())
                   <span v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
                     {{ user.horoscopeExpiresAt ? 'Hết hạn (' + formatDateTime(user.horoscopeExpiresAt) + ')' : 'Chưa đăng ký' }}
                   </span>
+                </td>
+                <td class="px-6 py-4 text-slate-300">
+                  <div v-if="user.lastCheckAt" class="text-xs font-mono text-slate-300">
+                    {{ formatDateTime(user.lastCheckAt) }}
+                  </div>
+                  <span v-else class="text-xs text-slate-500 italic">Chưa có</span>
                 </td>
                 <td class="px-6 py-4 text-center text-slate-300">
                   <div class="inline-flex items-center gap-1">
@@ -1242,3 +1249,4 @@ onUnmounted(() => chatStore.disconnect())
     </div>
   </div>
 </template>
+
