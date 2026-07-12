@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/services/api'
@@ -122,20 +122,11 @@ const aiSectionsObj = computed(() => {
 })
 
 const deepInsightObj = computed(() => resultObj.value?.nguHanh.deepInsight ?? null)
+const deepInsightPeriodsObj = computed(() => {
+  return deepInsightObj.value?.periods?.filter(period => period.notes && period.notes.length > 0) ?? []
+})
+const hasLegacyDeepInsightObj = computed(() => Boolean(deepInsightObj.value && !deepInsightObj.value.periods && deepInsightObj.value.groups))
 
-function getDeepInsightLevelClass(level: string): string {
-  if (level === 'Tốt') return 'text-emerald-400'
-  if (level === 'Khá') return 'text-gold-400'
-  if (level === 'Trung bình') return 'text-yellow-400'
-  return 'text-red-400'
-}
-
-function getDeepInsightBarClass(level: string): string {
-  if (level === 'Tốt') return 'from-emerald-500 to-emerald-300'
-  if (level === 'Khá') return 'from-gold-600 to-gold-300'
-  if (level === 'Trung bình') return 'from-yellow-600 to-yellow-300'
-  return 'from-red-600 to-red-400'
-}
 
 const isHungGroupObj = computed(() => {
   if (!resultObj.value) return false
@@ -575,43 +566,42 @@ const formattedAiAnalysis = computed(() => {
                   <h5 class="text-xs font-bold text-gold-400 flex items-center gap-1 mb-1.5">
                     <span>🔮</span> Chiêm nghiệm chuyên sâu:
                   </h5>
-                  <div v-if="deepInsightObj" class="space-y-3">
+                  <div v-if="deepInsightPeriodsObj.length" class="space-y-3">
                     <p class="text-xs text-slate-300 leading-relaxed">
-                      Mệnh ngày tháng là <strong class="text-gold-300 font-semibold">mệnh chính cuộc đời</strong>: {{ deepInsightObj.mainLifeElement }}.
-                      Điểm dưới đây giúp bạn chọn đúng nhóm cải vận phù hợp, không cộng vào tổng điểm SIM.
+                      Mệnh ngày tháng là <strong class="text-gold-300 font-semibold">mệnh chính cuộc đời</strong>: {{ deepInsightObj?.mainLifeElement }}.
+                      Các điểm nhấn dưới đây chỉ là ghi chú chiêm nghiệm, không cộng vào tổng điểm SIM.
                     </p>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div class="space-y-2">
                       <div
-                        v-for="group in deepInsightObj.groups"
-                        :key="group.key"
+                        v-for="period in deepInsightPeriodsObj"
+                        :key="period.key"
                         class="bg-slate-950/45 border border-slate-800/70 rounded-xl p-3 space-y-2"
                       >
                         <div class="flex items-start justify-between gap-3">
-                          <div class="min-w-0">
-                            <p class="text-xs font-bold text-slate-200 leading-snug">{{ group.label }}</p>
-                            <p class="text-[10px] font-bold uppercase mt-0.5" :class="getDeepInsightLevelClass(group.level)">
-                              {{ group.level }}
-                            </p>
-                          </div>
-                          <div class="shrink-0 text-right">
-                            <span class="text-base font-black text-gold-300">{{ group.score }}</span>
-                            <span class="text-[10px] text-slate-500">/{{ group.maxScore }}</span>
-                          </div>
+                          <p class="text-xs font-bold text-slate-200 leading-snug">{{ period.label }}</p>
+                          <span class="text-[10px] text-slate-500 font-mono">{{ period.digits }}</span>
                         </div>
-                        <div class="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div class="space-y-1.5">
                           <div
-                            class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
-                            :class="getDeepInsightBarClass(group.level)"
-                            :style="{ width: `${Math.min(100, (group.score / group.maxScore) * 100)}%` }"
-                          ></div>
+                            v-for="note in period.notes"
+                            :key="`${period.key}-${note.code}-${note.matched}`"
+                            class="text-[11px] text-slate-400 leading-relaxed border-l border-gold-500/30 pl-2"
+                          >
+                            <span class="text-gold-300 font-bold">{{ note.matched }}</span>
+                            <span class="text-slate-500"> · </span>
+                            <span class="text-slate-200 font-semibold">{{ note.title }}:</span>
+                            {{ note.description }}
+                          </div>
                         </div>
-                        <p class="text-[11px] text-slate-400 leading-relaxed">{{ group.summary }}</p>
                       </div>
                     </div>
                   </div>
+                  <p v-else-if="hasLegacyDeepInsightObj" class="text-xs text-slate-500 italic leading-relaxed">
+                    Kết quả cũ cần kiểm tra lại SIM để cập nhật phần chiêm nghiệm theo cặp số.
+                  </p>
                   <p v-else class="text-xs text-slate-500 italic leading-relaxed">
-                    Kết quả cũ chưa có dữ liệu chiêm nghiệm chuyên sâu theo nhóm. Vui lòng kiểm tra lại SIM để cập nhật phần này.
+                    Chưa ghi nhận điểm nhấn cặp số rõ trong SIM này.
                   </p>
                 </div>
               </GlassCard>
@@ -771,3 +761,5 @@ const formattedAiAnalysis = computed(() => {
     <footer class="text-center py-6 text-xs text-slate-600">© 2026 DI NHÂN PHONG THỦY SỐ</footer>
   </div>
 </template>
+
+
