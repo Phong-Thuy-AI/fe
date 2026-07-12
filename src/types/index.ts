@@ -1,4 +1,4 @@
-export interface User {
+﻿export interface User {
   id: number
   name: string
   email: string
@@ -22,7 +22,18 @@ export interface NguHanhResult {
   details: string
   deepInsight?: {
     mainLifeElement: string
-    groups: Array<{
+    periods?: Array<{
+      key: 'tienVan' | 'trungVan' | 'hauVan'
+      label: string
+      digits: string
+      notes: Array<{
+        code: string
+        matched: string
+        title: string
+        description: string
+      }>
+    }>
+    groups?: Array<{
       key: string
       label: string
       score: number
@@ -32,7 +43,6 @@ export interface NguHanhResult {
     }>
   }
 }
-
 export interface VanQueResult {
   score: number
   rating: string
@@ -118,3 +128,4 @@ export interface LookupResponse {
   }
   orders: LookupOrderItem[]
 }
+
