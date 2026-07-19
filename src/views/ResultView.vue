@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFengshuiStore } from '@/stores/fengshui'
@@ -570,7 +570,7 @@ const formattedAiAnalysis = computed(() => {
                   <span>⚡</span> Ngũ Hành SIM
                 </h4>
                 <span class="text-lg font-black text-gold-400">
-                  {{ result.nguHanh.score }}<span class="text-xs font-normal text-slate-500">/50</span>
+                  {{ result.nguHanh.score }}<span class="text-xs font-normal text-slate-500">/30</span>
                 </span>
               </div>
               
@@ -618,7 +618,6 @@ const formattedAiAnalysis = computed(() => {
                   >
                     <div class="flex items-start justify-between gap-3">
                       <p class="text-xs font-bold text-slate-200 leading-snug">{{ period.label }}</p>
-                      <span class="text-[10px] text-slate-500 font-mono">{{ period.digits }}</span>
                     </div>
                     <div class="space-y-1.5">
                       <div
@@ -626,9 +625,6 @@ const formattedAiAnalysis = computed(() => {
                         :key="`${period.key}-${note.code}-${note.matched}`"
                         class="text-[11px] text-slate-400 leading-relaxed border-l border-gold-500/30 pl-2"
                       >
-                        <span class="text-gold-300 font-bold">{{ note.matched }}</span>
-                        <span class="text-slate-500"> · </span>
-                        <span class="text-slate-200 font-semibold">{{ note.title }}:</span>
                         {{ note.description }}
                       </div>
                     </div>
@@ -655,7 +651,7 @@ const formattedAiAnalysis = computed(() => {
                   <span>🎋</span> Vận Quẻ SIM
                 </h4>
                 <span class="text-lg font-black text-gold-400">
-                  {{ result.vanQue.score }}<span class="text-xs font-normal text-slate-500">/50</span>
+                  {{ result.vanQue.score }}<span class="text-xs font-normal text-slate-500">/70</span>
                 </span>
               </div>
 
