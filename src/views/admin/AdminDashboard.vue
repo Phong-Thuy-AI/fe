@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -15,7 +15,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
 
-type Tab = 'reports' | 'chat' | 'orders' | 'users' | 'emails' | 'config'
+type Tab = 'reports' | 'chat' | 'orders' | 'users' | 'emails' | 'systemLogs' | 'config'
 const activeTab = ref<Tab>('chat')
 const mobileMenuOpen = ref(false)
 const newMessage = ref('')
@@ -27,6 +27,7 @@ const tabItems: Array<{ key: Tab; label: string; shortLabel: string }> = [
   { key: 'orders', label: 'Đơn Hàng', shortLabel: 'Đơn' },
   { key: 'users', label: 'Khách Hàng', shortLabel: 'Khách' },
   { key: 'emails', label: 'Nhật ký Mail', shortLabel: 'Mail' },
+  { key: 'systemLogs', label: 'Nhật ký Lỗi', shortLabel: 'Lỗi' },
   { key: 'config', label: 'Cấu Hình', shortLabel: 'Cài đặt' }
 ]
 
@@ -202,6 +203,74 @@ async function fetchEmailLogs() {
   } finally {
     loadingEmailLogs.value = false
   }
+}
+
+// Trạng thái Nhật ký & Lỗi Hệ thống (System Logs)
+const systemLogs = ref<any[]>([])
+const logStats = ref({ errorsToday: 0, aiErrorsToday: 0, clientErrorsToday: 0, totalLogs: 0 })
+const loadingSystemLogs = ref(false)
+const systemLogsPage = ref(1)
+const systemLogsTotalPages = ref(1)
+const systemLogsTotalCount = ref(0)
+const logFilterLevel = ref('')
+const logFilterSource = ref('')
+const logFilterStatusGroup = ref('')
+const logFilterSearch = ref('')
+const selectedLogModal = ref<any | null>(null)
+const clearingLogs = ref(false)
+
+async function fetchSystemLogStats() {
+  try {
+    const res = await api.get<{ data: any }>('/admin/logs/stats')
+    logStats.value = res.data.data
+  } catch (err) {
+    console.error('Lỗi khi tải thống kê log:', err)
+  }
+}
+
+async function fetchSystemLogs() {
+  loadingSystemLogs.value = true
+  try {
+    const res = await api.get<{ data: { logs: any[]; pagination: any } }>('/admin/logs', {
+      params: {
+        page: systemLogsPage.value,
+        level: logFilterLevel.value || undefined,
+        source: logFilterSource.value || undefined,
+        statusCodeGroup: logFilterStatusGroup.value || undefined,
+        search: logFilterSearch.value || undefined
+      }
+    })
+    systemLogs.value = res.data.data.logs
+    systemLogsTotalPages.value = res.data.data.pagination.totalPages
+    systemLogsTotalCount.value = res.data.data.pagination.total
+  } catch (err) {
+    console.error('Lỗi khi tải nhật ký hệ thống:', err)
+  } finally {
+    loadingSystemLogs.value = false
+  }
+}
+
+async function clearOldLogs(mode: 'old' | 'all') {
+  const msg = mode === 'all'
+    ? 'Bạn có chắc chắn muốn XÓA TOÀN BỘ nhật ký hệ thống không?'
+    : 'Dọn dẹp các bản ghi log hệ thống cũ hơn 30 ngày?'
+  if (!confirm(msg)) return
+
+  clearingLogs.value = true
+  try {
+    await api.delete('/admin/logs', { data: { mode } })
+    await fetchSystemLogStats()
+    await fetchSystemLogs()
+  } catch (err: any) {
+    alert(err?.response?.data?.error?.message || 'Lỗi khi dọn dẹp log.')
+  } finally {
+    clearingLogs.value = false
+  }
+}
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text)
+  alert('Đã sao chép Stack Trace vào bộ nhớ tạm!')
 }
 
 async function fetchOrders() {
@@ -439,6 +508,10 @@ watch(activeTab, (newTab) => {
   if (newTab === 'users') fetchUsers()
   if (newTab === 'emails') fetchEmailLogs()
   if (newTab === 'config') fetchConfigs()
+  if (newTab === 'systemLogs') {
+    fetchSystemLogStats()
+    fetchSystemLogs()
+  }
 })
 
 onMounted(async () => {
@@ -500,6 +573,10 @@ onUnmounted(() => chatStore.disconnect())
         <button @click="activeTab = 'emails'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='emails' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
           <span class="hidden sm:inline">📧 Nhật ký Mail</span>
           <span class="inline sm:hidden">📧 Mail</span>
+        </button>
+        <button @click="activeTab = 'systemLogs'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='systemLogs' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
+          <span class="hidden sm:inline">🛡️ Nhật ký Lỗi</span>
+          <span class="inline sm:hidden">🛡️ Lỗi</span>
         </button>
         <button @click="activeTab = 'config'" :class="['text-[11px] sm:text-xs px-2 sm:px-3 py-1.5 rounded-lg transition shrink-0', activeTab==='config' ? 'bg-gold-500/20 text-gold-300' : 'text-slate-400 hover:text-slate-200']">
           <span class="hidden sm:inline">⚙️ Cấu Hình</span>
@@ -1016,6 +1093,228 @@ onUnmounted(() => chatStore.disconnect())
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Logs Tab -->
+    <div v-if="activeTab === 'systemLogs'" class="flex-grow overflow-y-auto p-4 sm:p-6">
+      <div class="max-w-7xl mx-auto space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold gold-gradient-text">🛡️ Nhật Ký Lỗi & Giám Sát Hệ Thống</h2>
+            <p class="text-xs text-slate-400 mt-1">Theo dõi realtime lỗi API (4xx/5xx), lỗi AI Gemini/Claude và tiến trình ngầm Cron Job.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <BaseButton variant="ghost" size="sm" class="text-xs border-slate-700 text-slate-300" :disabled="clearingLogs" @click="clearOldLogs('old')">
+              🧹 Xóa log >30 ngày
+            </BaseButton>
+            <BaseButton variant="danger" size="sm" class="text-xs" :disabled="clearingLogs" @click="clearOldLogs('all')">
+              🗑️ Xóa tất cả log
+            </BaseButton>
+          </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <GlassCard class="p-4 border-l-4 border-l-red-500">
+            <div class="text-xs text-slate-400">🔴 Lỗi 5xx Hôm Nay</div>
+            <div class="text-2xl font-bold text-red-400 mt-1 font-mono">{{ logStats.errorsToday }}</div>
+          </GlassCard>
+          <GlassCard class="p-4 border-l-4 border-l-purple-500">
+            <div class="text-xs text-slate-400">🤖 Lỗi AI Hôm Nay</div>
+            <div class="text-2xl font-bold text-purple-400 mt-1 font-mono">{{ logStats.aiErrorsToday }}</div>
+          </GlassCard>
+          <GlassCard class="p-4 border-l-4 border-l-yellow-500">
+            <div class="text-xs text-slate-400">🟡 Lỗi Client (4xx)</div>
+            <div class="text-2xl font-bold text-yellow-400 mt-1 font-mono">{{ logStats.clientErrorsToday }}</div>
+          </GlassCard>
+          <GlassCard class="p-4 border-l-4 border-l-cyan-500">
+            <div class="text-xs text-slate-400">📊 Tổng Bản Ghi</div>
+            <div class="text-2xl font-bold text-cyan-400 mt-1 font-mono">{{ logStats.totalLogs }}</div>
+          </GlassCard>
+        </div>
+
+        <!-- Filters Bar -->
+        <GlassCard class="p-4 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-grow max-w-3xl">
+            <select
+              v-model="logFilterLevel"
+              class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500/50"
+              @change="systemLogsPage = 1; fetchSystemLogs()"
+            >
+              <option value="">-- Tất cả Level --</option>
+              <option value="error">Error (Nghiêm trọng)</option>
+              <option value="warn">Warn (Cảnh báo)</option>
+              <option value="info">Info (Thông tin)</option>
+            </select>
+
+            <select
+              v-model="logFilterSource"
+              class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500/50"
+              @change="systemLogsPage = 1; fetchSystemLogs()"
+            >
+              <option value="">-- Tất cả Nguồn --</option>
+              <option value="api">API Routes</option>
+              <option value="ai">Trí tuệ nhân tạo (AI)</option>
+              <option value="cron">Cron Job</option>
+              <option value="email">Hệ thống Email</option>
+              <option value="payment">Thanh toán</option>
+            </select>
+
+            <select
+              v-model="logFilterStatusGroup"
+              class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500/50 col-span-2 sm:col-span-1"
+              @change="systemLogsPage = 1; fetchSystemLogs()"
+            >
+              <option value="">-- Tất cả mã lỗi --</option>
+              <option value="5xx">🔥 Lỗi Server (5xx)</option>
+              <option value="4xx">⚠️ Lỗi Client (4xx)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            <input
+              v-model="logFilterSearch"
+              type="text"
+              placeholder="Tìm theo path, message..."
+              class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs w-full sm:w-48 focus:outline-none focus:border-gold-500/50"
+              @keyup.enter="systemLogsPage = 1; fetchSystemLogs()"
+            />
+            <BaseButton size="sm" class="text-xs py-1.5" @click="systemLogsPage = 1; fetchSystemLogs()">Lọc</BaseButton>
+          </div>
+        </GlassCard>
+
+        <!-- Log Table -->
+        <div v-if="loadingSystemLogs" class="flex justify-center py-12">
+          <div class="w-8 h-8 border-4 border-gold-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+
+        <div v-else-if="systemLogs.length === 0" class="text-center py-12 text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800">
+          Không tìm thấy nhật ký lỗi hệ thống nào.
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
+          <table class="w-full text-left border-collapse min-w-[900px]">
+            <thead>
+              <tr class="border-b border-slate-800 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th class="px-4 py-3">Mức độ & Nguồn</th>
+                <th class="px-4 py-3">Mã / Method / Path</th>
+                <th class="px-4 py-3">Thông báo lỗi</th>
+                <th class="px-4 py-3">Thời gian</th>
+                <th class="px-4 py-3 text-right">Chi tiết</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50 text-sm">
+              <tr v-for="log in systemLogs" :key="log.id" class="hover:bg-slate-800/20 transition-all">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-1.5">
+                    <span v-if="log.level === 'error'" class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">ERROR</span>
+                    <span v-else-if="log.level === 'warn'" class="px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">WARN</span>
+                    <span v-else class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">INFO</span>
+
+                    <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-300 uppercase font-mono">{{ log.source }}</span>
+                  </div>
+                </td>
+
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-1.5 font-mono text-xs">
+                    <span v-if="log.statusCode >= 500" class="text-red-400 font-bold px-1.5 py-0.5 bg-red-950/60 rounded border border-red-800">{{ log.statusCode }}</span>
+                    <span v-else-if="log.statusCode >= 400" class="text-yellow-400 font-bold px-1.5 py-0.5 bg-yellow-950/60 rounded border border-yellow-800">{{ log.statusCode }}</span>
+                    <span v-else-if="log.statusCode" class="text-slate-300 px-1.5 py-0.5 bg-slate-800 rounded">{{ log.statusCode }}</span>
+
+                    <span v-if="log.method" class="font-bold text-gold-400">{{ log.method }}</span>
+                    <span class="text-slate-300 truncate max-w-[200px]" :title="log.path">{{ log.path || '—' }}</span>
+                  </div>
+                </td>
+
+                <td class="px-4 py-3 max-w-md">
+                  <div class="text-xs font-mono text-slate-200 truncate" :title="log.message">{{ log.message }}</div>
+                </td>
+
+                <td class="px-4 py-3 text-xs text-slate-400 font-mono">
+                  {{ formatDateTime(log.createdAt) }}
+                </td>
+
+                <td class="px-4 py-3 text-right">
+                  <BaseButton variant="ghost" size="sm" class="text-xs py-1 px-2 border-slate-700" @click="selectedLogModal = log">
+                    🔍 Xem Stack Trace
+                  </BaseButton>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pagination Footer -->
+          <div class="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div>Hiển thị {{ systemLogs.length }} / {{ systemLogsTotalCount }} bản ghi (Trang {{ systemLogsPage }}/{{ systemLogsTotalPages }})</div>
+            <div class="flex items-center gap-2">
+              <BaseButton variant="ghost" size="sm" class="text-xs" :disabled="systemLogsPage <= 1" @click="systemLogsPage--; fetchSystemLogs()">Trước</BaseButton>
+              <BaseButton variant="ghost" size="sm" class="text-xs" :disabled="systemLogsPage >= systemLogsTotalPages" @click="systemLogsPage++; fetchSystemLogs()">Sau</BaseButton>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stack Trace Modal -->
+    <div v-if="selectedLogModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+          <div class="flex items-center gap-2">
+            <span class="text-base font-bold text-slate-100">🐛 Chi Tiết Nhật Ký Lỗi #{{ selectedLogModal.id }}</span>
+            <span v-if="selectedLogModal.statusCode" class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+              {{ selectedLogModal.statusCode }}
+            </span>
+          </div>
+          <button class="text-slate-400 hover:text-white text-lg font-bold" @click="selectedLogModal = null">✕</button>
+        </div>
+
+        <div class="p-5 overflow-y-auto space-y-4 text-xs font-mono">
+          <div>
+            <div class="text-slate-400 font-semibold uppercase text-[11px] mb-1">Thông Báo Lỗi:</div>
+            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-red-400 font-bold select-all">
+              {{ selectedLogModal.message }}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+            <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-500">Nguồn:</div>
+              <div class="text-slate-200 font-bold uppercase mt-0.5">{{ selectedLogModal.source }}</div>
+            </div>
+            <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-500">Method / Path:</div>
+              <div class="text-gold-400 font-bold mt-0.5 truncate">{{ selectedLogModal.method || 'N/A' }} {{ selectedLogModal.path || '' }}</div>
+            </div>
+            <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-500">Thời gian:</div>
+              <div class="text-slate-200 mt-0.5">{{ formatDateTime(selectedLogModal.createdAt) }}</div>
+            </div>
+            <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-500">IP:</div>
+              <div class="text-slate-200 mt-0.5">{{ selectedLogModal.metadata?.ip || 'N/A' }}</div>
+            </div>
+          </div>
+
+          <!-- Metadata -->
+          <div v-if="selectedLogModal.metadata">
+            <div class="text-slate-400 font-semibold uppercase text-[11px] mb-1">Metadata / Request Details:</div>
+            <pre class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-slate-300 overflow-x-auto text-[11px] leading-relaxed">{{ JSON.stringify(selectedLogModal.metadata, null, 2) }}</pre>
+          </div>
+
+          <!-- Stack Trace -->
+          <div v-if="selectedLogModal.stack">
+            <div class="flex items-center justify-between text-slate-400 font-semibold uppercase text-[11px] mb-1">
+              <span>Stack Trace (Dấu vết lỗi 500):</span>
+              <button class="text-gold-400 hover:underline" @click="copyToClipboard(selectedLogModal.stack)">📋 Copy Stack Trace</button>
+            </div>
+            <pre class="bg-slate-950 p-4 rounded-lg border border-red-900/40 text-red-300/90 overflow-x-auto text-[11px] leading-relaxed select-all whitespace-pre-wrap">{{ selectedLogModal.stack }}</pre>
+          </div>
+        </div>
+
+        <div class="p-3 border-t border-slate-800 bg-slate-950/60 flex justify-end">
+          <BaseButton size="sm" class="text-xs" @click="selectedLogModal = null">Đóng</BaseButton>
         </div>
       </div>
     </div>
